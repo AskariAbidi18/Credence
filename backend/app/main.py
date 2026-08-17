@@ -7,11 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.upload import router as upload_router
 
+from app.db.database import Base, engine
+from app.db import models  # noqa: F401
+
 app = FastAPI(
     title="Credence Document Processing API",
     description="Intelligent Loan Document Review & Approval System",
     version="1.0.0",
 )
+
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,

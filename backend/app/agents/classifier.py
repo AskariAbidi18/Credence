@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.schemas.documents import ClassificationResult, DocumentType
-from app.services.claude import call_claude_on_document, extract_json
+from backend.app.services.llm import call_claude_on_document, extract_json
 
 CLASSIFIER_PROMPT = """You are a document classification agent for a loan \
 application system.
