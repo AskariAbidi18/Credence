@@ -1,5 +1,5 @@
 """
-Tests for the extraction agent. Requires ANTHROPIC_API_KEY to be set —
+Tests for the extraction agent. Requires XAI_API_KEY to be set —
 these make real API calls against the synthetic documents in data/, they
 are not mocked. Run with: pytest tests/test_extraction.py -v
 """

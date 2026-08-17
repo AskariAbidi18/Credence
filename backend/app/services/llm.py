@@ -45,9 +45,9 @@ def get_client():
     if _anthropic_client is None:
         from anthropic import AsyncAnthropic
 
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = os.environ.get("XAI_API_KEY")
         if not api_key:
-            raise RuntimeError("ANTHROPIC_API_KEY is not set in backend/.env")
+            raise RuntimeError("XAI_API_KEY is not set in backend/.env")
         http_client = httpx.AsyncClient(verify=False)
         _anthropic_client = AsyncAnthropic(api_key=api_key, http_client=http_client)
     return _anthropic_client
@@ -199,7 +199,7 @@ async def call_claude_on_document(
     """
     path = Path(file_path)
     groq_key = os.environ.get("GROQ_API_KEY")
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    anthropic_key = os.environ.get("XAI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
 
     # 1. Primary Provider: Groq API
