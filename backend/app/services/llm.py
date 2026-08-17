@@ -47,7 +47,7 @@ def get_client():
 
         api_key = os.environ.get("XAI_API_KEY")
         if not api_key:
-            raise RuntimeError("XAI_API_KEY is not set in backend/.env")
+            raise RuntimeError("GROQ_API_KEYis not set in backend/.env")
         http_client = httpx.AsyncClient(verify=False)
         _anthropic_client = AsyncAnthropic(api_key=api_key, http_client=http_client)
     return _anthropic_client
