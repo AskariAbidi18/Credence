@@ -19,7 +19,7 @@ from app.schemas.documents import (
     DocumentType,
     ExtractedDocument,
 )
-from app.services.claude import call_claude_on_document, extract_json
+from backend.app.services.llm import call_claude_on_document, extract_json
 
 # Field-by-field instructions per document type. Keep these in sync with
 # the schemas in app/schemas/documents.py — if you add a field there, add
