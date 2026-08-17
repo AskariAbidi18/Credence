@@ -1,0 +1,36 @@
+# Environment variables & secrets
+.env
+*.env
+
+# Duplicate / legacy folders
+Credence/
+
+# Generated Uploads & Data Outputs
+uploads/
+backend/uploads/
+*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.so
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
