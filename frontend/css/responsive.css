@@ -1,0 +1,178 @@
+/* ============================================================
+   CREDENCE — responsive.css
+   Media queries, mobile sidebar, responsive grid overrides
+   ============================================================ */
+
+/* ── Sidebar collapsed (desktop) ─────────────────────────── */
+.app-shell.sidebar-collapsed .sidebar {
+  width: 0;
+  overflow: hidden;
+}
+
+/* ── Large desktop ────────────────────────────────────────── */
+@media (min-width: 1280px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .page-content {
+    padding: 1.75rem 2rem;
+  }
+}
+
+/* ── Tablet ───────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 220px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .result-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Mobile (< 768px) ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 280px;
+  }
+
+  /* On mobile, sidebar is off-canvas */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 50;
+    transform: translateX(-100%);
+    width: var(--sidebar-width) !important;
+    transition: transform var(--transition-slow);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-slow);
+  }
+
+  .sidebar-overlay.visible {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .sidebar-close-btn {
+    display: inline-flex;
+  }
+
+  .main-content {
+    width: 100%;
+  }
+
+  .app-header {
+    padding: 0 1rem;
+  }
+
+  .page-content {
+    padding: 1rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-zone {
+    padding: 2rem 1.25rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .filter-bar {
+    gap: 0.5rem;
+  }
+
+  .doc-meta-header {
+    flex-direction: column;
+  }
+
+  .api-status .status-text {
+    display: none;
+  }
+
+  .breadcrumb {
+    max-width: 200px;
+    overflow: hidden;
+  }
+
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+}
+
+/* ── Small mobile (< 480px) ──────────────────────────────── */
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+
+  .toast {
+    min-width: unset;
+    max-width: 100%;
+  }
+
+  table {
+    font-size: 0.8125rem;
+  }
+
+  thead th,
+  tbody td {
+    padding: 0.625rem 0.75rem;
+  }
+}
+
+/* ── Print ────────────────────────────────────────────────── */
+@media print {
+  .sidebar,
+  .app-header,
+  .sidebar-overlay,
+  .toast-container,
+  .btn,
+  .filter-bar {
+    display: none !important;
+  }
+
+  .main-content {
+    width: 100%;
+  }
+
+  .page-content {
+    padding: 0;
+  }
+
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
