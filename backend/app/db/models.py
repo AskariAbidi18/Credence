@@ -25,6 +25,27 @@ class Application(Base):
         nullable=False,
     )
 
+    applicant_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    loan_type: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
+    loan_data: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+        default=dict,
+    )
+
+    risk_assessment: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
