@@ -19,7 +19,7 @@ from app.schemas.documents import (
     DocumentType,
     ExtractedDocument,
 )
-from backend.app.services.llm import call_claude_on_document, extract_json
+from app.services.llm import analyze_document, extract_json
 
 # Field-by-field instructions per document type. Keep these in sync with
 # the schemas in app/schemas/documents.py — if you add a field there, add
@@ -88,7 +88,7 @@ async def extract_document(
     prompt = _build_prompt(document_type)
 
     try:
-        raw_response = await call_claude_on_document(path, prompt)
+        raw_response = await analyze_document(path, prompt)
         payload = extract_json(raw_response)
 
         validated_data = schema.model_validate(payload.get("data", {}))

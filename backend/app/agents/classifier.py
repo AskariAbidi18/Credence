@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.schemas.documents import ClassificationResult, DocumentType
-from backend.app.services.llm import call_claude_on_document, extract_json
+from app.services.llm import analyze_document, extract_json
 
 CLASSIFIER_PROMPT = """You are a document classification agent for a loan \
 application system.
@@ -46,12 +46,15 @@ LOW_CONFIDENCE_THRESHOLD = 0.6
 
 async def classify_document(file_path: str | Path) -> ClassificationResult:
     """
-    Classify a single document file. Raises ValueError if Claude's response
+    Classify a single document file. Raises ValueError if LLM's response
     can't be parsed into a valid ClassificationResult — callers should catch
     this and route the document to manual review rather than crash the
     pipeline on one bad file.
     """
-    raw_response = await call_claude_on_document(file_path, CLASSIFIER_PROMPT)
+    raw_response = await analyze_document(
+        file_path,
+        CLASSIFIER_PROMPT,
+    )
 
     try:
         payload = extract_json(raw_response)
