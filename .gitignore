@@ -106,3 +106,8 @@ backend/app/ml/artifacts/*.pickle
 
 # Generated synthetic training PDFs
 data/*/train_*.pdf
+
+# Local SQLite database
+*.db
+*.sqlite
+*.sqlite3
