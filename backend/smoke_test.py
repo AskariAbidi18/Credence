@@ -1,5 +1,5 @@
 """
-Manual smoke test -- run this after setting ANTHROPIC_API_KEY to confirm
+Manual smoke test -- run this after setting GROQ_API_KEYto confirm
 the classifier and extractor work end to end against a real document,
 without needing pytest or the API server.
 

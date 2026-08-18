@@ -1,5 +1,5 @@
 """
-Tests for the classifier agent. Requires ANTHROPIC_API_KEY to be set —
+Tests for the classifier agent. Requires GROQ_API_KEYto be set —
 these make real API calls against the synthetic documents in data/, they
 are not mocked. Run with: pytest tests/test_classifier.py -v
 """

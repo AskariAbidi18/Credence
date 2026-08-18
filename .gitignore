@@ -1,36 +1,113 @@
+# ============================================================
 # Environment variables & secrets
+# ============================================================
+
 .env
 *.env
+.env.*
+!.env.example
 
+
+# ============================================================
 # Duplicate / legacy folders
+# ============================================================
+
 Credence/
 
-# Generated Uploads & Data Outputs
+
+# ============================================================
+# Generated uploads & runtime outputs
+# ============================================================
+
 uploads/
 backend/uploads/
+
 *.csv
 
+# Generated synthetic training documents
+data/*/train_*.pdf
+
+# Runtime/generated artifacts
+*.log
+
+
+# ============================================================
+# Machine Learning artifacts
+# ============================================================
+
+# Trained models generated locally
+backend/app/ml/artifacts/*.joblib
+backend/app/ml/artifacts/*.pkl
+backend/app/ml/artifacts/*.pickle
+
+
+# ============================================================
 # Python
+# ============================================================
+
 __pycache__/
 *.py[cod]
 *$py.class
+
 .pytest_cache/
 .coverage
 htmlcov/
 *.so
 
-# Virtual Environment
+# Type checking / tooling
+.mypy_cache/
+.ruff_cache/
+
+
+# ============================================================
+# Virtual environments
+# ============================================================
+
 .venv/
 venv/
 ENV/
 env/
 
+
+# ============================================================
 # IDE / Editor
+# ============================================================
+
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS files
+
+# ============================================================
+# OS
+# ============================================================
+
 .DS_Store
 Thumbs.db
+
+
+# ============================================================
+# Temporary files
+# ============================================================
+
+*.tmp
+*.temp
+*.bak
+
+#training data
+*.csv
+!data/loan_approval/loan_approval_dataset.csv
+
+# ML generated artifacts
+backend/app/ml/artifacts/*.joblib
+backend/app/ml/artifacts/*.pkl
+backend/app/ml/artifacts/*.pickle
+
+# Generated synthetic training PDFs
+data/*/train_*.pdf
+
+# Local SQLite database
+*.db
+*.sqlite
+*.sqlite3

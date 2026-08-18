@@ -32,7 +32,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# then edit .env and set ANTHROPIC_API_KEY
+# then edit .env and set XAI_API_KEY
 ```
 
 Synthetic test documents are already generated in `data/`. To regenerate

@@ -5,6 +5,7 @@ FastAPI Main Application Entry Point for Credence.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.applications import router as applications_router
 from app.api.upload import router as upload_router
 
 from app.db.database import Base, engine
@@ -27,6 +28,7 @@ app.add_middleware(
 )
 
 app.include_router(upload_router)
+app.include_router(applications_router)
 
 
 @app.get("/")
