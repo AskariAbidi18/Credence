@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credence — AI Loan Document Processing</title>
+  <meta name="description" content="Credence AI-powered loan document classification, extraction and review platform." />
+
+  <!-- Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+  <link rel="stylesheet" href="./css/responsive.css" />
+</head>
+<body>
+
+  <!-- ── App Shell ── -->
+  <div id="app-shell" class="app-shell">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar" role="navigation" aria-label="Main navigation">
+      <!-- Sidebar Header / Brand -->
+      <div class="sidebar-header">
+        <a href="#/dashboard" class="sidebar-brand">
+          <div class="brand-icon">
+            <i data-lucide="landmark" class="icon-sm"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name">Credence</span>
+            <span class="brand-subtitle">AI Document Processing</span>
+          </div>
+        </a>
+        <button id="sidebar-close-btn" class="sidebar-close-btn icon-btn" aria-label="Close sidebar">
+          <i data-lucide="x" class="icon-sm"></i>
+        </button>
+      </div>
+
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar-nav">
+
+        <div class="nav-section">
+          <span class="nav-section-label">Overview</span>
+          <ul class="nav-list">
+            <li><a href="#/dashboard" class="nav-item" data-page="dashboard">
+              <i data-lucide="layout-dashboard" class="icon-sm"></i>
+              <span>Dashboard</span>
+            </a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <span class="nav-section-label">Documents</span>
+          <ul class="nav-list">
+            <li><a href="#/upload" class="nav-item" data-page="upload">
+              <i data-lucide="upload" class="icon-sm"></i>
+              <span>Upload Document</span>
+            </a></li>
+            <li><a href="#/documents" class="nav-item" data-page="documents">
+              <i data-lucide="files" class="icon-sm"></i>
+              <span>Document History</span>
+              <span id="doc-count-badge" class="nav-badge hidden">0</span>
+            </a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section">
+          <span class="nav-section-label">Insights</span>
+          <ul class="nav-list">
+            <li><a href="#/analytics" class="nav-item" data-page="analytics">
+              <i data-lucide="chart-area" class="icon-sm"></i>
+              <span>Analytics</span>
+            </a></li>
+          </ul>
+        </div>
+
+        <div class="nav-section nav-section-bottom">
+          <span class="nav-section-label">System</span>
+          <ul class="nav-list">
+            <li><a href="#/settings" class="nav-item" data-page="settings">
+              <i data-lucide="settings" class="icon-sm"></i>
+              <span>Settings</span>
+            </a></li>
+            <li><a href="#/support" class="nav-item" data-page="support">
+              <i data-lucide="life-buoy" class="icon-sm"></i>
+              <span>Help &amp; Support</span>
+            </a></li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <div class="user-card">
+          <div class="user-avatar">AI</div>
+          <div class="user-info">
+            <span class="user-name">Credence System</span>
+            <span class="user-role">Document Processing</span>
+          </div>
+          <button class="icon-btn" aria-label="User menu">
+            <i data-lucide="chevrons-up-down" class="icon-xs"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- Main content area -->
+    <div class="main-content">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="header-left">
+          <button id="sidebar-toggle-btn" class="icon-btn" aria-label="Toggle sidebar">
+            <i data-lucide="panel-left" class="icon-sm"></i>
+          </button>
+          <div class="header-separator"></div>
+          <nav class="breadcrumb" id="breadcrumb" aria-label="Breadcrumb">
+            <span class="breadcrumb-item">Credence</span>
+          </nav>
+        </div>
+        <div class="header-right">
+          <div class="api-status" id="api-status" title="Backend API status">
+            <span class="status-dot status-checking"></span>
+            <span class="status-text">Checking API...</span>
+          </div>
+          <button id="theme-toggle-btn" class="icon-btn" aria-label="Toggle theme">
+            <i data-lucide="sun" class="icon-sm" id="theme-icon-sun"></i>
+            <i data-lucide="moon" class="icon-sm hidden" id="theme-icon-moon"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main id="page-content" class="page-content" role="main">
+        <!-- Rendered by JS router -->
+        <div class="page-loading">
+          <div class="spinner"></div>
+          <span>Loading...</span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Core JS (order matters) -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
