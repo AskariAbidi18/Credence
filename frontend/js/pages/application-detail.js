@@ -1,102 +1,165 @@
+function showToast(message, type = "info", title = null) {
+  const container = document.getElementById("toast-container");
+
+  if (!container) {
+    console.warn("Toast container not found:", message);
+    return;
+  }
+
+  const titles = {
+    success: "Success",
+    error: "Error",
+    warning: "Warning",
+    info: "Information",
+  };
+
+  const icons = {
+    success: "circle-check",
+    error: "circle-alert",
+    warning: "triangle-alert",
+    info: "info",
+  };
+
+  const toast = document.createElement("div");
+
+  toast.className = `toast toast-${type}`;
+
+  toast.innerHTML = `
+    <div class="toast-icon">
+      <i data-lucide="${icons[type] || icons.info}"></i>
+    </div>
+
+    <div class="toast-content">
+      <div class="toast-title">
+        ${title || titles[type] || titles.info}
+      </div>
+
+      <div class="toast-message">
+        ${message}
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="toast-close"
+      aria-label="Close notification"
+    >
+      <i data-lucide="x" class="icon-xs"></i>
+    </button>
+  `;
+
+  container.appendChild(toast);
+
+  if (window.lucide) {
+    lucide.createIcons({
+      nodes: [toast],
+    });
+  }
+
+  const removeToast = () => {
+    if (!toast.isConnected) return;
+
+    toast.classList.add("removing");
+
+    setTimeout(() => {
+      toast.remove();
+    }, 200);
+  };
+
+  toast.querySelector(".toast-close")?.addEventListener("click", removeToast);
+
+  setTimeout(removeToast, 5000);
+}
+
 import {
   getApplication,
   uploadApplicationDocument,
   validateApplication,
   assessApplicationRisk,
   generateApplicationSummary,
-} from '../api.js';
+} from "../api.js";
 
-import {
-  setActiveNav,
-  setBreadcrumb,
-} from '../sidebar.js';
+import { setActiveNav, setBreadcrumb } from "../sidebar.js";
 
-import { navigate } from '../router.js';
-
+import { navigate } from "../router.js";
 
 function formatCurrency(value) {
-  if (value == null) return '—';
+  if (value == null) return "—";
 
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
     maximumFractionDigits: 0,
   }).format(Number(value));
 }
 
-
 function formatDate(value) {
-  if (!value) return '—';
+  if (!value) return "—";
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return "—";
 
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 
-
 function statusLabel(status) {
   switch (status) {
-    case 'review_required':
-      return 'Review Required';
+    case "review_required":
+      return "Review Required";
 
-    case 'approved':
-      return 'Approved';
+    case "approved":
+      return "Approved";
 
-    case 'rejected':
-      return 'Rejected';
+    case "rejected":
+      return "Rejected";
 
-    case 'pending':
-      return 'Pending';
+    case "pending":
+      return "Pending";
 
     default:
-      return status || 'Unknown';
+      return status || "Unknown";
   }
 }
-
 
 function statusBadgeClass(status) {
   switch (status) {
-    case 'approved':
-      return 'badge-success';
+    case "approved":
+      return "badge-success";
 
-    case 'rejected':
-      return 'badge-error';
+    case "rejected":
+      return "badge-error";
 
-    case 'review_required':
-      return 'badge-warning';
+    case "review_required":
+      return "badge-warning";
 
     default:
-      return 'badge-neutral';
+      return "badge-neutral";
   }
 }
 
-
 function probability(value) {
-  if (value == null) return '—';
+  if (value == null) return "—";
 
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
-
 function escapeHtml(value) {
-  if (value == null) return '';
+  if (value == null) return "";
 
   return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-
-function renderLoading(container, text = 'Loading application...') {
+function renderLoading(container, text = "Loading application...") {
   container.innerHTML = `
     <div class="page-loading">
       <div class="spinner"></div>
@@ -104,7 +167,6 @@ function renderLoading(container, text = 'Loading application...') {
     </div>
   `;
 }
-
 
 function renderError(container, title, message) {
   container.innerHTML = `
@@ -138,12 +200,11 @@ function renderError(container, title, message) {
   }
 
   container
-    .querySelector('#back-to-applications')
-    ?.addEventListener('click', () => {
-      navigate('/applications');
+    .querySelector("#back-to-applications")
+    ?.addEventListener("click", () => {
+      navigate("/applications");
     });
 }
-
 
 function renderDocuments(documents) {
   if (!documents || documents.length === 0) {
@@ -164,7 +225,9 @@ function renderDocuments(documents) {
     `;
   }
 
-  return documents.map((doc) => `
+  return documents
+    .map(
+      (doc) => `
     <div class="document-item">
 
       <div style="display:flex;align-items:center;gap:12px;min-width:0;">
@@ -194,11 +257,11 @@ function renderDocuments(documents) {
               white-space:nowrap;
             "
           >
-            ${escapeHtml(doc.filename || 'Unnamed document')}
+            ${escapeHtml(doc.filename || "Unnamed document")}
           </strong>
 
           <span style="display:block;margin-top:3px;">
-            ${escapeHtml(doc.document_type || 'Unknown type')}
+            ${escapeHtml(doc.document_type || "Unknown type")}
           </span>
         </div>
 
@@ -207,7 +270,7 @@ function renderDocuments(documents) {
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
 
         <span class="badge badge-success">
-          ${escapeHtml(doc.extraction_status || 'unknown')}
+          ${escapeHtml(doc.extraction_status || "unknown")}
         </span>
 
         ${
@@ -217,15 +280,16 @@ function renderDocuments(documents) {
                 ${(Number(doc.extraction_confidence) * 100).toFixed(0)}%
               </span>
             `
-            : ''
+            : ""
         }
 
       </div>
 
     </div>
-  `).join('');
+  `,
+    )
+    .join("");
 }
-
 
 function renderValidation(validation) {
   if (!validation) {
@@ -275,16 +339,14 @@ function renderValidation(validation) {
               font-weight:650;
             "
           >
-            ${validation.passed ? 'Validation Passed' : 'Validation Failed'}
+            ${validation.passed ? "Validation Passed" : "Validation Failed"}
           </div>
         </div>
 
         <span class="badge ${
-          validation.passed
-            ? 'badge-success'
-            : 'badge-error'
+          validation.passed ? "badge-success" : "badge-error"
         }">
-          ${validation.passed ? 'Passed' : 'Failed'}
+          ${validation.passed ? "Passed" : "Failed"}
         </span>
       </div>
 
@@ -295,10 +357,10 @@ function renderValidation(validation) {
           <strong>
             ${
               validation.validation_confidence != null
-                ? `${(
-                    Number(validation.validation_confidence) * 100
-                  ).toFixed(0)}%`
-                : '—'
+                ? `${(Number(validation.validation_confidence) * 100).toFixed(
+                    0,
+                  )}%`
+                : "—"
             }
           </strong>
         </div>
@@ -311,16 +373,14 @@ function renderValidation(validation) {
         <div>
           <span>Missing Documents</span>
           <strong>
-            ${
-              validation.missing_documents?.length || 0
-            }
+            ${validation.missing_documents?.length || 0}
           </strong>
         </div>
 
         <div>
           <span>Status</span>
           <strong>
-            ${validation.passed ? 'Clear' : 'Issues Found'}
+            ${validation.passed ? "Clear" : "Issues Found"}
           </strong>
         </div>
 
@@ -335,17 +395,19 @@ function renderValidation(validation) {
               </div>
 
               <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                ${validation.missing_documents.map(
-                  (doc) => `
+                ${validation.missing_documents
+                  .map(
+                    (doc) => `
                     <span class="badge badge-warning">
                       ${escapeHtml(doc)}
                     </span>
-                  `
-                ).join('')}
+                  `,
+                  )
+                  .join("")}
               </div>
             </div>
           `
-          : ''
+          : ""
       }
 
       ${
@@ -357,8 +419,9 @@ function renderValidation(validation) {
               </div>
 
               <div style="display:flex;flex-direction:column;gap:8px;">
-                ${flags.map(
-                  (flag) => `
+                ${flags
+                  .map(
+                    (flag) => `
                     <div
                       style="
                         padding:13px 15px;
@@ -380,9 +443,9 @@ function renderValidation(validation) {
                         </strong>
 
                         <span class="badge ${
-                          flag.severity === 'critical'
-                            ? 'badge-error'
-                            : 'badge-warning'
+                          flag.severity === "critical"
+                            ? "badge-error"
+                            : "badge-warning"
                         }">
                           ${escapeHtml(flag.severity)}
                         </span>
@@ -392,8 +455,9 @@ function renderValidation(validation) {
                         ${escapeHtml(flag.reason)}
                       </p>
                     </div>
-                  `
-                ).join('')}
+                  `,
+                  )
+                  .join("")}
               </div>
             </div>
           `
@@ -407,7 +471,6 @@ function renderValidation(validation) {
     </div>
   `;
 }
-
 
 function renderRisk(risk) {
   if (!risk) {
@@ -455,16 +518,14 @@ function renderRisk(risk) {
               font-weight:700;
             "
           >
-            ${escapeHtml(risk.decision || 'Unknown')}
+            ${escapeHtml(risk.decision || "Unknown")}
           </div>
         </div>
 
         <span class="badge ${
-          risk.decision === 'Approved'
-            ? 'badge-success'
-            : 'badge-error'
+          risk.decision === "Approved" ? "badge-success" : "badge-error"
         }">
-          ${escapeHtml(risk.decision || 'Unknown')}
+          ${escapeHtml(risk.decision || "Unknown")}
         </span>
       </div>
 
@@ -489,7 +550,6 @@ function renderRisk(risk) {
     </div>
   `;
 }
-
 
 function renderSummary(summary) {
   if (!summary) {
@@ -526,7 +586,7 @@ function renderSummary(summary) {
               </p>
             </div>
           `
-          : ''
+          : ""
       }
 
       ${
@@ -542,7 +602,7 @@ function renderSummary(summary) {
               </p>
             </div>
           `
-          : ''
+          : ""
       }
 
       <div class="detail-grid">
@@ -550,28 +610,28 @@ function renderSummary(summary) {
         <div>
           <span>Risk Level</span>
           <strong>
-            ${escapeHtml(summary.risk_level || '—')}
+            ${escapeHtml(summary.risk_level || "—")}
           </strong>
         </div>
 
         <div>
           <span>Model Risk</span>
           <strong>
-            ${escapeHtml(summary.model_risk || '—')}
+            ${escapeHtml(summary.model_risk || "—")}
           </strong>
         </div>
 
         <div>
           <span>Recommendation</span>
           <strong>
-            ${escapeHtml(summary.recommendation || '—')}
+            ${escapeHtml(summary.recommendation || "—")}
           </strong>
         </div>
 
         <div>
           <span>Review Required</span>
           <strong>
-            ${summary.review_required ? 'Yes' : 'No'}
+            ${summary.review_required ? "Yes" : "No"}
           </strong>
         </div>
 
@@ -597,7 +657,7 @@ function renderSummary(summary) {
               </p>
             </div>
           `
-          : ''
+          : ""
       }
 
       ${
@@ -609,23 +669,24 @@ function renderSummary(summary) {
               </div>
 
               <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                ${summary.review_reasons.map(
-                  (reason) => `
+                ${summary.review_reasons
+                  .map(
+                    (reason) => `
                     <span class="badge badge-warning">
                       ${escapeHtml(reason)}
                     </span>
-                  `
-                ).join('')}
+                  `,
+                  )
+                  .join("")}
               </div>
             </div>
           `
-          : ''
+          : ""
       }
 
     </div>
   `;
 }
-
 
 function renderApplication(container, application) {
   const loan = application.loan_data || {};
@@ -639,9 +700,7 @@ function renderApplication(container, application) {
         </div>
 
         <h1 class="page-title">
-          ${escapeHtml(
-            application.applicant_name || 'Unnamed Applicant'
-          )}
+          ${escapeHtml(application.applicant_name || "Unnamed Applicant")}
         </h1>
 
         <p class="page-subtitle">
@@ -709,14 +768,14 @@ function renderApplication(container, application) {
         <div>
           <span>Applicant</span>
           <strong>
-            ${escapeHtml(application.applicant_name || '—')}
+            ${escapeHtml(application.applicant_name || "—")}
           </strong>
         </div>
 
         <div>
           <span>Loan Type</span>
           <strong>
-            ${escapeHtml(application.loan_type || '—')}
+            ${escapeHtml(application.loan_type || "—")}
           </strong>
         </div>
 
@@ -730,7 +789,7 @@ function renderApplication(container, application) {
         <div>
           <span>Loan Term</span>
           <strong>
-            ${loan.loan_term ?? '—'} years
+            ${loan.loan_term ?? "—"} years
           </strong>
         </div>
 
@@ -744,14 +803,14 @@ function renderApplication(container, application) {
         <div>
           <span>CIBIL Score</span>
           <strong>
-            ${loan.cibil_score ?? '—'}
+            ${loan.cibil_score ?? "—"}
           </strong>
         </div>
 
         <div>
           <span>Dependents</span>
           <strong>
-            ${loan.no_of_dependents ?? '—'}
+            ${loan.no_of_dependents ?? "—"}
           </strong>
         </div>
 
@@ -1002,7 +1061,6 @@ function renderApplication(container, application) {
   attachApplicationEvents(container, application.id);
 }
 
-
 function setButtonLoading(button, loadingText) {
   if (!button) return;
 
@@ -1014,7 +1072,6 @@ function setButtonLoading(button, loadingText) {
     ${loadingText}
   `;
 }
-
 
 function restoreButton(button) {
   if (!button) return;
@@ -1030,150 +1087,169 @@ function restoreButton(button) {
   }
 }
 
-
 function attachApplicationEvents(container, applicationId) {
-
   /* ----------------------------------------------------------
      Back button
      ---------------------------------------------------------- */
 
   container
-    .querySelector('#back-applications-btn')
-    ?.addEventListener('click', () => {
-      navigate('/applications');
+    .querySelector("#back-applications-btn")
+    ?.addEventListener("click", () => {
+      navigate("/applications");
     });
-
 
   /* ----------------------------------------------------------
      Validation
      ---------------------------------------------------------- */
 
   container
-    .querySelector('#validate-btn')
-    ?.addEventListener('click', async () => {
+    .querySelector("#validate-btn")
+    ?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-      const button = container.querySelector('#validate-btn');
+      const button = container.querySelector("#validate-btn");
 
       try {
-        setButtonLoading(button, 'Validating...');
+        setButtonLoading(button, "Validating...");
 
         const result = await validateApplication(applicationId);
 
-        renderApplication(container, result);
+        const validationSection = container.querySelector(
+          "#validation-section",
+        );
 
+        if (validationSection) {
+          validationSection.innerHTML = renderValidation(result.validation);
+        }
+
+        if (window.lucide) {
+          lucide.createIcons({
+            nodes: [validationSection],
+          });
+        }
+
+        showToast(
+          "Validation completed successfully.",
+          "success",
+          "Validation complete",
+        );
+        console.log("VALIDATION RESULT:", result);
       } catch (error) {
         console.error(error);
 
-        alert(
-          `Validation failed: ${error.message}`
-        );
-
+        showToast(error.message, "error", "Validation failed");
       } finally {
         restoreButton(button);
       }
     });
-
 
   /* ----------------------------------------------------------
      Risk assessment
      ---------------------------------------------------------- */
 
-  container
-    .querySelector('#risk-btn')
-    ?.addEventListener('click', async () => {
+  container.querySelector("#risk-btn")?.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    const button = container.querySelector("#risk-btn");
 
-      const button = container.querySelector('#risk-btn');
+    try {
+      setButtonLoading(button, "Assessing...");
 
-      try {
-        setButtonLoading(button, 'Assessing...');
+      const result = await assessApplicationRisk(applicationId);
 
-        const result = await assessApplicationRisk(applicationId);
+      const riskSection = container.querySelector("#risk-section");
 
-        renderApplication(container, result);
-
-      } catch (error) {
-        console.error(error);
-
-        alert(
-          `Risk assessment failed: ${error.message}`
-        );
-
-      } finally {
-        restoreButton(button);
+      if (riskSection) {
+        riskSection.innerHTML = renderRisk(result.risk_assessment);
       }
-    });
 
+      if (window.lucide) {
+        lucide.createIcons({
+          nodes: [riskSection],
+        });
+      }
+
+      showToast(
+        "Risk assessment completed successfully.",
+        "success",
+        "Risk assessment complete",
+      );
+    } catch (error) {
+      console.error(error);
+
+      showToast(error.message, "error", "Risk assessment failed");
+    } finally {
+      restoreButton(button);
+    }
+  });
 
   /* ----------------------------------------------------------
      AI summary
      ---------------------------------------------------------- */
 
   container
-    .querySelector('#summary-btn')
-    ?.addEventListener('click', async () => {
-
-      const button = container.querySelector('#summary-btn');
+    .querySelector("#summary-btn")
+    ?.addEventListener("click", async () => {
+        event.preventDefault();
+        event.stopPropagation();
+      const button = container.querySelector("#summary-btn");
 
       try {
-        setButtonLoading(button, 'Generating...');
+        setButtonLoading(button, "Generating...");
 
-        const result = await generateApplicationSummary(
-          applicationId
-        );
+        const result = await generateApplicationSummary(applicationId);
 
         renderApplication(container, result);
 
+        showToast(
+          "AI reviewer summary generated successfully.",
+          "success",
+          "Summary generated",
+        );
       } catch (error) {
         console.error(error);
 
-        alert(
-          `Summary generation failed: ${error.message}`
-        );
-
+        showToast(error.message, "error", "Summary generation failed");
       } finally {
         restoreButton(button);
       }
     });
-
 
   /* ----------------------------------------------------------
      Application document upload
      ---------------------------------------------------------- */
 
   container
-    .querySelector('#application-document-input')
-    ?.addEventListener('change', async (event) => {
-
+    .querySelector("#application-document-input")
+    ?.addEventListener("change", async (event) => {
       const input = event.target;
       const file = input.files?.[0];
 
       if (!file) return;
 
-      const allowedTypes = [
-        'application/pdf',
-        'image/png',
-        'image/jpeg',
-      ];
+      const allowedTypes = ["application/pdf", "image/png", "image/jpeg"];
 
       if (!allowedTypes.includes(file.type)) {
-        alert(
-          'Please upload a PDF, PNG or JPEG document.'
+        showToast(
+          "Please upload a PDF, PNG or JPEG document.",
+          "warning",
+          "Invalid document",
         );
 
-        input.value = '';
+        input.value = "";
         return;
       }
 
       try {
-
         const label = container.querySelector(
-          'label[for="application-document-input"]'
+          'label[for="application-document-input"]',
         );
 
         if (label) {
           label.dataset.originalText = label.innerHTML;
 
-          label.style.pointerEvents = 'none';
+          label.style.pointerEvents = "none";
 
           label.innerHTML = `
             <span class="spinner spinner-sm"></span>
@@ -1181,15 +1257,9 @@ function attachApplicationEvents(container, applicationId) {
           `;
         }
 
-        const result = await uploadApplicationDocument(
-          applicationId,
-          file,
-        );
+        const result = await uploadApplicationDocument(applicationId, file);
 
-        console.log(
-          'Application document uploaded:',
-          result,
-        );
+        console.log("Application document uploaded:", result);
 
         /*
          * The upload endpoint returns the extracted document.
@@ -1197,36 +1267,30 @@ function attachApplicationEvents(container, applicationId) {
          * document is displayed from the database.
          */
 
-        const updatedApplication =
-          await getApplication(applicationId);
+        const updatedApplication = await getApplication(applicationId);
 
-        renderApplication(
-          container,
-          updatedApplication,
+        renderApplication(container, updatedApplication);
+        showToast(
+          `${file.name} was processed successfully.`,
+          "success",
+          "Document uploaded",
         );
-
       } catch (error) {
-
         console.error(error);
 
-        alert(
-          `Document upload failed: ${error.message}`
-        );
-
+        showToast(error.message, "error", "Document upload failed");
       } finally {
-
-        input.value = '';
+        input.value = "";
 
         const label = container.querySelector(
-          'label[for="application-document-input"]'
+          'label[for="application-document-input"]',
         );
 
         if (label) {
-          label.style.pointerEvents = '';
+          label.style.pointerEvents = "";
 
           if (label.dataset.originalText) {
-            label.innerHTML =
-              label.dataset.originalText;
+            label.innerHTML = label.dataset.originalText;
           }
 
           if (window.lucide) {
@@ -1239,52 +1303,30 @@ function attachApplicationEvents(container, applicationId) {
     });
 }
 
-
 /* ============================================================
    PUBLIC PAGE RENDERER
    ============================================================ */
 
 export async function renderApplicationDetail(id) {
+  setActiveNav("applications");
 
-  setActiveNav('applications');
+  setBreadcrumb(["Credence", "Applications", "Details"]);
 
-  setBreadcrumb([
-    'Credence',
-    'Applications',
-    'Details',
-  ]);
-
-  const container =
-    document.getElementById('page-content');
+  const container = document.getElementById("page-content");
 
   if (!container) return;
 
-  container.className =
-    'page-content page-enter';
+  container.className = "page-content page-enter";
 
-  renderLoading(
-    container,
-    'Loading application...',
-  );
+  renderLoading(container, "Loading application...");
 
   try {
+    const application = await getApplication(id);
 
-    const application =
-      await getApplication(id);
-
-    renderApplication(
-      container,
-      application,
-    );
-
+    renderApplication(container, application);
   } catch (error) {
-
     console.error(error);
 
-    renderError(
-      container,
-      'Unable to load application',
-      error.message,
-    );
+    renderError(container, "Unable to load application", error.message);
   }
 }
