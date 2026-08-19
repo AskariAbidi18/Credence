@@ -15,6 +15,7 @@ import { checkBackendHealth }               from './api.js';
 import { renderDashboard }                  from './pages/dashboard.js';
 import { renderApplicationDetail }          from './pages/application-detail.js';
 import { renderApplications }               from './pages/applications.js';
+import { renderNewApplication }             from './pages/new-application.js';
 import { renderUpload }                     from './pages/upload.js';
 import { renderDocuments }                  from './pages/documents.js';
 import { renderDocumentDetail }             from './pages/document-detail.js';
@@ -24,6 +25,7 @@ import { renderSupport }                    from './pages/support.js';
 
 // ── Register all routes ──────────────────────────────────────
 route('/dashboard',        () => renderDashboard());
+route('/application/new',  () => renderNewApplication());
 route('/application/([^/]+)', ([id]) => renderApplicationDetail(id));
 route('/applications',     () => renderApplications());
 route('/upload',           () => renderUpload());

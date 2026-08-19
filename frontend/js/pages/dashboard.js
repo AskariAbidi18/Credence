@@ -373,7 +373,7 @@ function renderDashboardContent(content, applications) {
   content
     .querySelector("#dashboard-new-application-btn")
     ?.addEventListener("click", () => {
-      navigate("/applications");
+      navigate("/application/new");
     });
 
   content

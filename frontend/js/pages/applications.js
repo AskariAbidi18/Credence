@@ -84,7 +84,7 @@ function renderRow(application) {
 
       <div>
         <span class="application-label">Loan</span>
-        <strong>${loanData.loan_type || application.loan_type || '—'}</strong>
+        <strong>${application.loan_type || '—'}</strong>
       </div>
 
       <div>
