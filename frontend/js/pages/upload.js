@@ -6,24 +6,28 @@
  * and displays the full ExtractedDocument response.
  */
 
-import { uploadDocument } from '../api.js';
-import { saveDocument } from '../storage.js';
-import { setActiveNav, setBreadcrumb, updateDocBadge } from '../sidebar.js';
-import { showToast } from '../toast.js';
-import { navigate } from '../router.js';
-import { formatDocType, getTypeCls, escHtml } from './dashboard.js';
+import { getApplications, uploadApplicationDocument } from "../api.js";
+import { setActiveNav, setBreadcrumb } from "../sidebar.js";
+import { showToast } from "../toast.js";
+import { navigate } from "../router.js";
+import { formatDocType, getTypeCls, escHtml } from "./dashboard.js";
 
-const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-const ALLOWED_EXT   = ['.pdf', '.png', '.jpg', '.jpeg'];
-const MAX_SIZE_MB   = 20;
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+];
+const ALLOWED_EXT = [".pdf", ".png", ".jpg", ".jpeg"];
+const MAX_SIZE_MB = 20;
 
 export async function renderUpload() {
-  setActiveNav('upload');
-  setBreadcrumb(['Credence', 'Documents', 'Upload']);
+  setActiveNav("upload");
+  setBreadcrumb(["Credence", "Documents", "Upload"]);
 
-  const content = document.getElementById('page-content');
-  content.innerHTML = '';
-  content.className = 'page-content page-enter';
+  const content = document.getElementById("page-content");
+  content.innerHTML = "";
+  content.className = "page-content page-enter";
 
   content.innerHTML = `
     <div class="page-header">
@@ -44,7 +48,27 @@ export async function renderUpload() {
           <div class="card-description">PDF, PNG, or JPG · Max ${MAX_SIZE_MB}MB</div>
         </div>
         <div class="card-content">
+          <!-- Application selector -->
+<div style="margin-bottom: 1rem;">
+  <label
+    for="application-select"
+    class="text-sm font-medium"
+    style="display:block; margin-bottom:0.5rem;"
+  >
+    Loan Application
+  </label>
 
+  <select
+    id="application-select"
+    class="form-input"
+  >
+    <option value="">Loading applications...</option>
+  </select>
+
+  <p class="text-xs text-muted" style="margin-top:0.35rem;">
+    Select the application this document belongs to.
+  </p>
+</div>
           <!-- Drop zone -->
           <div class="upload-zone" id="upload-zone">
             <input type="file" id="file-input" accept=".pdf,.png,.jpg,.jpeg" aria-label="Choose file to upload" />
@@ -140,39 +164,94 @@ export async function renderUpload() {
   `;
 
   lucide.createIcons({ nodes: [content] });
+
+  await loadApplications();
+
   initUploadLogic();
 }
 
+async function loadApplications() {
+  const select = document.getElementById("application-select");
+
+  if (!select) return;
+
+  try {
+    const applications = await getApplications();
+
+    if (!applications.length) {
+      select.innerHTML = `
+        <option value="">
+          No applications available
+        </option>
+      `;
+
+      return;
+    }
+
+    select.innerHTML = `
+      <option value="">
+        Select an application
+      </option>
+
+      ${applications
+        .map(
+          (application) => `
+        <option value="${escHtml(application.id)}">
+          ${escHtml(application.applicant_name || "Unnamed Applicant")}
+          — ${escHtml(application.loan_type || "Loan")}
+        </option>
+      `,
+        )
+        .join("")}
+    `;
+  } catch (error) {
+    console.error("Failed to load applications:", error);
+
+    select.innerHTML = `
+      <option value="">
+        Unable to load applications
+      </option>
+    `;
+
+    showToast({
+      type: "error",
+      title: "Applications unavailable",
+      desc: error.message,
+    });
+  }
+}
+
 function initUploadLogic() {
-  const zone       = document.getElementById('upload-zone');
-  const fileInput  = document.getElementById('file-input');
-  const uploadBtn  = document.getElementById('upload-btn');
-  const clearBtn   = document.getElementById('clear-file-btn');
+  const zone = document.getElementById("upload-zone");
+  const fileInput = document.getElementById("file-input");
+  const uploadBtn = document.getElementById("upload-btn");
+  const clearBtn = document.getElementById("clear-file-btn");
+  const applicationSelect = document.getElementById("application-select");
   let selectedFile = null;
 
   // Drag and drop
-  zone.addEventListener('dragover', (e) => {
+  zone.addEventListener("dragover", (e) => {
     e.preventDefault();
-    zone.classList.add('drag-over');
+    zone.classList.add("drag-over");
   });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', (e) => {
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop", (e) => {
     e.preventDefault();
-    zone.classList.remove('drag-over');
+    zone.classList.remove("drag-over");
     const file = e.dataTransfer?.files?.[0];
     if (file) handleFileSelect(file);
   });
 
   // File input change
-  fileInput.addEventListener('change', () => {
+  fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
     if (file) handleFileSelect(file);
   });
 
   // Clear file
-  clearBtn?.addEventListener('click', () => {
+  clearBtn?.addEventListener("click", () => {
     selectedFile = null;
-    fileInput.value = '';
+    fileInput.value = "";
     hideFileInfo();
     uploadBtn.disabled = true;
     hideError();
@@ -180,11 +259,21 @@ function initUploadLogic() {
   });
 
   // Upload button
-  uploadBtn.addEventListener('click', async () => {
+  uploadBtn.addEventListener("click", async () => {
     if (!selectedFile) return;
-    await processUpload(selectedFile);
-  });
 
+    const applicationId = applicationSelect?.value;
+
+    if (!applicationId) {
+      showError(
+        "Please select a loan application before processing the document.",
+      );
+
+      return;
+    }
+
+    await processUpload(selectedFile, applicationId);
+  });
   function handleFileSelect(file) {
     const err = validateFile(file);
     if (err) {
@@ -200,8 +289,9 @@ function initUploadLogic() {
 }
 
 function validateFile(file) {
-  const ext = '.' + file.name.split('.').pop().toLowerCase();
-  const isValidType = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.includes(ext);
+  const ext = "." + file.name.split(".").pop().toLowerCase();
+  const isValidType =
+    ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.includes(ext);
   if (!isValidType) {
     return `Unsupported file type. Please upload a PDF, PNG, or JPG file.`;
   }
@@ -212,104 +302,108 @@ function validateFile(file) {
 }
 
 function showFileInfo(file) {
-  const info = document.getElementById('file-info');
-  const name = document.getElementById('file-name');
-  const size = document.getElementById('file-size');
-  info?.classList.remove('hidden');
-  info?.style.setProperty('display', 'flex');
+  const info = document.getElementById("file-info");
+  const name = document.getElementById("file-name");
+  const size = document.getElementById("file-size");
+  info?.classList.remove("hidden");
+  info?.style.setProperty("display", "flex");
   if (name) name.textContent = file.name;
   if (size) size.textContent = formatFileSize(file.size);
   lucide.createIcons({ nodes: [info] });
 }
 
 function hideFileInfo() {
-  document.getElementById('file-info')?.classList.add('hidden');
+  document.getElementById("file-info")?.classList.add("hidden");
 }
 
 function showError(msg) {
-  const errWrap = document.getElementById('upload-error');
-  const errMsg  = document.getElementById('upload-error-msg');
-  errWrap?.classList.remove('hidden');
-  errWrap?.style.setProperty('display', 'flex');
+  const errWrap = document.getElementById("upload-error");
+  const errMsg = document.getElementById("upload-error-msg");
+  errWrap?.classList.remove("hidden");
+  errWrap?.style.setProperty("display", "flex");
   if (errMsg) errMsg.textContent = msg;
   lucide.createIcons({ nodes: [errWrap] });
 }
 
 function hideError() {
-  document.getElementById('upload-error')?.classList.add('hidden');
+  document.getElementById("upload-error")?.classList.add("hidden");
 }
 
 function hideResult() {
-  document.getElementById('result-panel')?.classList.add('hidden');
+  document.getElementById("result-panel")?.classList.add("hidden");
 }
 
-async function processUpload(file) {
-  const uploadBtn     = document.getElementById('upload-btn');
-  const progressWrap  = document.getElementById('upload-progress');
-  const aiWrap        = document.getElementById('ai-processing');
-  const progressBar   = document.getElementById('progress-bar');
-  const progressPct   = document.getElementById('progress-pct');
-  const progressLabel = document.getElementById('progress-label');
+async function processUpload(file, applicationId) {
+  const uploadBtn = document.getElementById("upload-btn");
+  const progressWrap = document.getElementById("upload-progress");
+  const aiWrap = document.getElementById("ai-processing");
+  const progressBar = document.getElementById("progress-bar");
+  const progressPct = document.getElementById("progress-pct");
+  const progressLabel = document.getElementById("progress-label");
 
   uploadBtn.disabled = true;
   hideError();
   hideResult();
 
   // Show progress
-  progressWrap?.classList.remove('hidden');
-  progressWrap?.style.setProperty('display', 'block');
+  progressWrap?.classList.remove("hidden");
+  progressWrap?.style.setProperty("display", "block");
 
   try {
-    const result = await uploadDocument(file, (pct) => {
-      if (progressBar) progressBar.style.width = pct + '%';
-      if (progressPct) progressPct.textContent = pct + '%';
+    const result = await uploadApplicationDocument(
+      applicationId,
+      file,
+      (pct) => {
+        if (progressBar) progressBar.style.width = pct + "%";
+        if (progressPct) progressPct.textContent = pct + "%";
 
-      if (pct >= 100) {
-        // File uploaded, now AI is processing
-        if (progressLabel) progressLabel.textContent = 'Extracting data...';
-        progressWrap?.classList.add('hidden');
-        aiWrap?.classList.remove('hidden');
-        aiWrap?.style.setProperty('display', 'block');
-      }
-    });
+        if (pct >= 100) {
+          // File uploaded, now AI is processing
+          if (progressLabel) progressLabel.textContent = "Extracting data...";
+          progressWrap?.classList.add("hidden");
+          aiWrap?.classList.remove("hidden");
+          aiWrap?.style.setProperty("display", "block");
+        }
+      },
+    );
 
     // Hide all loading states
-    progressWrap?.classList.add('hidden');
-    aiWrap?.classList.add('hidden');
-
-    // Save to localStorage
-    saveDocument(result);
-    updateDocBadge();
+    progressWrap?.classList.add("hidden");
+    aiWrap?.classList.add("hidden");
 
     // Show result
     renderResult(result);
 
     showToast({
-      type: 'success',
-      title: 'Document Processed',
-      desc: `${file.name} classified as ${formatDocType(result.document_type)}.`,
+      type: "success",
+      title: "Document Processed",
+      desc: `${file.name} classified as ${formatDocType(result.document_type)} and attached to the application.`,
     });
-
   } catch (err) {
-    progressWrap?.classList.add('hidden');
-    aiWrap?.classList.add('hidden');
-    showError(err.message || 'An unexpected error occurred.');
-    showToast({ type: 'error', title: 'Processing Failed', desc: err.message });
+    progressWrap?.classList.add("hidden");
+    aiWrap?.classList.add("hidden");
+    showError(err.message || "An unexpected error occurred.");
+    showToast({ type: "error", title: "Processing Failed", desc: err.message });
   } finally {
     uploadBtn.disabled = false;
   }
 }
 
 function renderResult(doc) {
-  const panel   = document.getElementById('result-panel');
-  const content = document.getElementById('result-content');
+  const panel = document.getElementById("result-panel");
+  const content = document.getElementById("result-content");
   if (!panel || !content) return;
 
-  const conf     = doc.classification_confidence;
-  const extConf  = doc.extraction_confidence;
+  const conf = doc.classification_confidence;
+  const extConf = doc.extraction_confidence;
   const typeLabel = formatDocType(doc.document_type);
-  const typeCls   = getTypeCls(doc.document_type);
-  const statusBadge = doc.extraction_status === 'success' ? 'badge-success' : doc.extraction_status === 'partial' ? 'badge-warning' : 'badge-error';
+  const typeCls = getTypeCls(doc.document_type);
+  const statusBadge =
+    doc.extraction_status === "success"
+      ? "badge-success"
+      : doc.extraction_status === "partial"
+        ? "badge-warning"
+        : "badge-error";
 
   content.innerHTML = `
     <!-- Document metadata card -->
@@ -334,8 +428,8 @@ function renderResult(doc) {
         <!-- Confidence section -->
         <p class="result-section-title">AI Confidence</p>
         <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:1.5rem;">
-          ${renderConfBar('Classification', conf)}
-          ${extConf != null ? renderConfBar('Extraction', extConf) : ''}
+          ${renderConfBar("Classification", conf)}
+          ${extConf != null ? renderConfBar("Extraction", extConf) : ""}
         </div>
 
         <!-- Extracted data section -->
@@ -372,8 +466,8 @@ function renderResult(doc) {
     </div>
   `;
 
-  panel.classList.remove('hidden');
-  panel.style.display = 'block';
+  panel.classList.remove("hidden");
+  panel.style.display = "block";
   lucide.createIcons({ nodes: [panel] });
 
   // Animate confidence bars
@@ -384,8 +478,13 @@ function renderResult(doc) {
 
 function renderConfBar(label, value) {
   const pct = Math.round(value * 100);
-  const cls = pct >= 80 ? 'high' : pct >= 60 ? 'medium' : 'low';
-  const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--error)';
+  const cls = pct >= 80 ? "high" : pct >= 60 ? "medium" : "low";
+  const color =
+    pct >= 80
+      ? "var(--success)"
+      : pct >= 60
+        ? "var(--warning)"
+        : "var(--error)";
   return `
     <div class="confidence-item">
       <div class="confidence-header">
@@ -400,91 +499,98 @@ function renderConfBar(label, value) {
 }
 
 function animateConfBars(root) {
-  root.querySelectorAll('.confidence-fill[data-target]').forEach((el) => {
+  root.querySelectorAll(".confidence-fill[data-target]").forEach((el) => {
     const target = el.dataset.target;
-    requestAnimationFrame(() => { el.style.width = target + '%'; });
+    requestAnimationFrame(() => {
+      el.style.width = target + "%";
+    });
   });
 }
 
 function renderExtractedFields(type, data) {
   const fieldConfig = {
     payslip: [
-      { key: 'employee_name', label: 'Employee Name' },
-      { key: 'employer',      label: 'Employer' },
-      { key: 'period',        label: 'Period' },
-      { key: 'gross_pay',     label: 'Gross Pay', currency: true },
-      { key: 'net_pay',       label: 'Net Pay', currency: true },
-      { key: 'deductions',    label: 'Deductions', currency: true },
-      { key: 'currency',      label: 'Currency' },
+      { key: "employee_name", label: "Employee Name" },
+      { key: "employer", label: "Employer" },
+      { key: "period", label: "Period" },
+      { key: "gross_pay", label: "Gross Pay", currency: true },
+      { key: "net_pay", label: "Net Pay", currency: true },
+      { key: "deductions", label: "Deductions", currency: true },
+      { key: "currency", label: "Currency" },
     ],
     bank_statement: [
-      { key: 'account_holder',        label: 'Account Holder' },
-      { key: 'account_number_last4',  label: 'Acct. No. (Last 4)', mono: true },
-      { key: 'statement_period',      label: 'Statement Period' },
-      { key: 'opening_balance',       label: 'Opening Balance', currency: true },
-      { key: 'closing_balance',       label: 'Closing Balance', currency: true },
-      { key: 'average_balance',       label: 'Average Balance', currency: true },
-      { key: 'total_deposits',        label: 'Total Deposits', currency: true },
-      { key: 'total_withdrawals',     label: 'Total Withdrawals', currency: true },
-      { key: 'transactions_count',    label: 'Transaction Count' },
-      { key: 'currency',              label: 'Currency' },
+      { key: "account_holder", label: "Account Holder" },
+      { key: "account_number_last4", label: "Acct. No. (Last 4)", mono: true },
+      { key: "statement_period", label: "Statement Period" },
+      { key: "opening_balance", label: "Opening Balance", currency: true },
+      { key: "closing_balance", label: "Closing Balance", currency: true },
+      { key: "average_balance", label: "Average Balance", currency: true },
+      { key: "total_deposits", label: "Total Deposits", currency: true },
+      { key: "total_withdrawals", label: "Total Withdrawals", currency: true },
+      { key: "transactions_count", label: "Transaction Count" },
+      { key: "currency", label: "Currency" },
     ],
     tax_return: [
-      { key: 'taxpayer_name',   label: 'Taxpayer Name' },
-      { key: 'tax_year',        label: 'Tax Year' },
-      { key: 'declared_income', label: 'Declared Income', currency: true },
-      { key: 'taxable_income',  label: 'Taxable Income', currency: true },
-      { key: 'tax_paid',        label: 'Tax Paid', currency: true },
-      { key: 'currency',        label: 'Currency' },
+      { key: "taxpayer_name", label: "Taxpayer Name" },
+      { key: "tax_year", label: "Tax Year" },
+      { key: "declared_income", label: "Declared Income", currency: true },
+      { key: "taxable_income", label: "Taxable Income", currency: true },
+      { key: "tax_paid", label: "Tax Paid", currency: true },
+      { key: "currency", label: "Currency" },
     ],
     kyc: [
-      { key: 'full_name',              label: 'Full Name' },
-      { key: 'date_of_birth',          label: 'Date of Birth' },
-      { key: 'document_type',          label: 'ID Type' },
-      { key: 'document_number_last4',  label: 'Doc. No. (Last 4)', mono: true },
-      { key: 'address',                label: 'Address' },
-      { key: 'expiry_date',            label: 'Expiry Date' },
+      { key: "full_name", label: "Full Name" },
+      { key: "date_of_birth", label: "Date of Birth" },
+      { key: "document_type", label: "ID Type" },
+      { key: "document_number_last4", label: "Doc. No. (Last 4)", mono: true },
+      { key: "address", label: "Address" },
+      { key: "expiry_date", label: "Expiry Date" },
     ],
   };
 
   const fields = fieldConfig[type] ?? [];
 
-  return fields.map(({ key, label, currency, mono }) => {
-    const raw = data?.[key];
-    let display = '—';
-    if (raw != null && raw !== '') {
-      if (currency && typeof raw === 'number') {
-        display = raw.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      } else {
-        display = String(raw);
+  return fields
+    .map(({ key, label, currency, mono }) => {
+      const raw = data?.[key];
+      let display = "—";
+      if (raw != null && raw !== "") {
+        if (currency && typeof raw === "number") {
+          display = raw.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        } else {
+          display = String(raw);
+        }
       }
-    }
-    return `
+      return `
       <div class="result-field">
         <span class="result-field-label">${label}</span>
-        <span class="result-field-value ${mono ? 'mono' : ''}">${escHtml(display)}</span>
+        <span class="result-field-value ${mono ? "mono" : ""}">${escHtml(display)}</span>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 function docTypeIcon(type) {
   const icons = {
-    payslip:        '<i data-lucide="receipt" class="icon-md"></i>',
+    payslip: '<i data-lucide="receipt" class="icon-md"></i>',
     bank_statement: '<i data-lucide="landmark" class="icon-md"></i>',
-    tax_return:     '<i data-lucide="file-spreadsheet" class="icon-md"></i>',
-    kyc:            '<i data-lucide="shield-check" class="icon-md"></i>',
+    tax_return: '<i data-lucide="file-spreadsheet" class="icon-md"></i>',
+    kyc: '<i data-lucide="shield-check" class="icon-md"></i>',
   };
   return icons[type] ?? '<i data-lucide="file-text" class="icon-md"></i>';
 }
 
 // ── Helpers ──────────────────────────────────────────────────
 function formatFileSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
 }
 
 function capitalize(str) {
-  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 }
