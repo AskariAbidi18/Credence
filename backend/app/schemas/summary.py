@@ -41,4 +41,9 @@ class LoanSummary(BaseModel):
     recommendation: Recommendation
 
     reviewer_summary: str
-    
+
+    model_risk: str
+
+    review_required: bool
+
+    review_reasons: list[str] = Field(default_factory=list)

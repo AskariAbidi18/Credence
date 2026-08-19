@@ -22,6 +22,7 @@ from app.db.database import get_db
 from app.db.models import (
     Application,
     Document,
+    Summary,
     ValidationFlag as ValidationFlagModel,
 )
 from app.schemas.application import (
@@ -42,6 +43,11 @@ from app.services.risk import (
     assess_loan_risk,
 )
 from app.services.validation import validate_application
+from app.services.summary import (
+    SummaryGenerationError,
+    generate_application_summary,
+)
+from app.schemas.summary import LoanSummary
 
 
 router = APIRouter(
@@ -137,6 +143,30 @@ def _validation_to_schema(
     )
 
 
+def _summary_to_schema(
+    application: Application,
+) -> LoanSummary | None:
+    """Convert persisted summary into the API schema."""
+
+    if application.summary is None:
+        return None
+
+    return LoanSummary(
+        application_id=application.id,
+        applicant_profile=application.summary.applicant_profile,
+        income_assessment=application.summary.income_assessment,
+        overall_assessment=application.summary.overall_assessment,
+        risk_level=application.summary.risk_level,
+        model_risk=application.summary.model_risk,
+        review_required=application.summary.review_required,
+        review_reasons=application.summary.flags,
+        flags=application.summary.flags,
+        missing_documents=application.summary.missing_documents,
+        recommendation=application.summary.recommendation,
+        reviewer_summary=application.summary.reviewer_summary,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Create application
 # ---------------------------------------------------------------------------
@@ -227,7 +257,7 @@ def get_application(
             for document in application.documents
         ],
         validation=_validation_to_schema(application),
-        summary=None,
+        summary=_summary_to_schema(application),
         risk_assessment=(
             application.risk_assessment
             if application.risk_assessment
@@ -297,8 +327,106 @@ def assess_application_risk(
             for document in application.documents
         ],
         validation=_validation_to_schema(application),
-        summary=None,
+        summary=_summary_to_schema(application),
         risk_assessment=risk_result,
+        created_at=application.created_at,
+        updated_at=application.updated_at,
+    )
+
+
+@router.post(
+    "/{application_id}/summary",
+    response_model=ApplicationResponse,
+)
+async def generate_application_summary_endpoint(
+    application_id: str,
+    db: Session = Depends(get_db),
+) -> ApplicationResponse:
+    """
+    Generate an explainable reviewer summary for an application.
+
+    The risk model and validation engine remain authoritative.
+    The LLM only explains and synthesizes their results.
+    """
+
+    application = (
+        db.query(Application)
+        .filter(Application.id == application_id)
+        .first()
+    )
+
+    if application is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found.",
+        )
+
+    if not application.risk_assessment:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Risk assessment must be completed "
+                "before generating a summary."
+            ),
+        )
+
+    try:
+        summary = await generate_application_summary(
+            application
+        )
+
+    except SummaryGenerationError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+    # ---------------------------------------------------------------
+    # Replace existing summary if one already exists
+    # ---------------------------------------------------------------
+
+    if application.summary is not None:
+        db.delete(application.summary)
+        db.flush()
+
+    db_summary = Summary(
+        application_id=application.id,
+        applicant_profile=(
+            summary.applicant_profile.model_dump()
+        ),
+        income_assessment=summary.income_assessment,
+        overall_assessment=summary.overall_assessment,
+        risk_level=summary.risk_level,
+        model_risk=summary.model_risk,
+        review_required=summary.review_required,
+        flags=summary.flags,
+        missing_documents=summary.missing_documents,
+        recommendation=summary.recommendation,
+        reviewer_summary=summary.reviewer_summary,
+    )
+
+    db.add(db_summary)
+
+    db.commit()
+    db.refresh(application)
+
+    return ApplicationResponse(
+        id=application.id,
+        status=application.status,
+        applicant_name=application.applicant_name,
+        loan_type=application.loan_type,
+        loan_data=application.loan_data or None,
+        documents=[
+            _document_to_schema(document)
+            for document in application.documents
+        ],
+        validation=_validation_to_schema(application),
+        summary=_summary_to_schema(application),
+        risk_assessment=(
+            application.risk_assessment
+            if application.risk_assessment
+            else None
+        ),
         created_at=application.created_at,
         updated_at=application.updated_at,
     )
@@ -415,7 +543,7 @@ async def upload_application_document(
             status_code=500,
             detail=(
                 f"Failed to process document "
-                f"'{safe_filename}': {exc}"
+                f"'{safe_filename}': {exc}",
             ),
         ) from exc
 
@@ -520,7 +648,7 @@ def validate_application_endpoint(
             for document in application.documents
         ],
         validation=validation_result,
-        summary=None,
+        summary=_summary_to_schema(application),
         risk_assessment=(
             application.risk_assessment
             if application.risk_assessment

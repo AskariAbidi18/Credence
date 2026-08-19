@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -231,6 +231,18 @@ class Summary(Base):
     risk_level: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
+    )
+
+    model_risk: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="medium",
+    )
+
+    review_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
     )
 
     flags: Mapped[list] = mapped_column(
