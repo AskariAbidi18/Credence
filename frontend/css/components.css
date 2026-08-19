@@ -1291,3 +1291,333 @@ html:not(.dark) .doc-meta-icon.kyc           { background: rgba(139,92,246,0.10)
 .doc-meta-info { flex: 1; min-width: 0; }
 .doc-meta-name { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.01em; word-break: break-word; }
 .doc-meta-id   { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--fg-muted); margin-top: 0.25rem; }
+
+/* ============================================================
+   APPLICATIONS
+   ============================================================ */
+
+.applications-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.applications-count {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.applications-table {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.applications-table-header,
+.application-row {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 2fr)
+    minmax(110px, 1fr)
+    minmax(140px, 1fr)
+    minmax(80px, 0.7fr)
+    minmax(140px, 1fr)
+    minmax(110px, 0.8fr)
+    40px;
+  align-items: center;
+  column-gap: 16px;
+  padding: 0 20px;
+}
+
+.applications-table-header {
+  min-height: 46px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.applications-table-body {
+  width: 100%;
+}
+
+.application-row {
+  min-height: 76px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.application-row:last-child {
+  border-bottom: none;
+}
+
+.application-row:hover {
+  background: var(--surface-hover);
+}
+
+.application-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.application-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.application-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-id {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application-label {
+  display: none;
+}
+
+.application-row strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-success {
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.10);
+  color: #4ade80;
+}
+
+.status-danger {
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.10);
+  color: #f87171;
+}
+
+.status-warning {
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.10);
+  color: #fbbf24;
+}
+
+.status-neutral {
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+}
+
+
+/* ============================================================
+   APPLICATION DETAIL
+   ============================================================ */
+
+.application-detail-card {
+  margin-bottom: 16px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.application-detail-card h2 {
+  margin: 0 0 18px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.application-detail-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--border);
+}
+
+.detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 78px;
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+.detail-grid span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.detail-grid strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-elevated);
+}
+
+.document-item + .document-item {
+  margin-top: 8px;
+}
+
+.document-item strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.document-item span {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+
+/* ============================================================
+   APPLICATION RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .applications-table-header,
+  .application-row {
+    grid-template-columns:
+      minmax(200px, 2fr)
+      minmax(100px, 1fr)
+      minmax(120px, 1fr)
+      minmax(70px, 0.7fr)
+      minmax(125px, 1fr)
+      40px;
+  }
+
+  .applications-table-header span:nth-child(6),
+  .application-row > div:nth-child(6) {
+    display: none;
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .applications-table-header {
+    display: none;
+  }
+
+  .application-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .application-row > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .application-row > div:last-child {
+    display: none;
+  }
+
+  .application-label {
+    display: inline;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .application-main {
+    justify-content: flex-start !important;
+  }
+
+  .application-main .application-name {
+    text-align: left;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .application-detail-card {
+    padding: 16px;
+  }
+
+  .document-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

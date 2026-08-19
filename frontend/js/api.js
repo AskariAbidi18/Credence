@@ -2,31 +2,35 @@
  * api.js — Backend API wrapper for Credence
  *
  * Single source of truth for all backend communication.
- * The backend is READ-ONLY and must NOT be modified.
- *
- * Backend API contract:
- *   POST /api/upload   — multipart/form-data, field: "file"
- *   GET  /             — health check
  */
 
 export const BACKEND_URL = 'http://localhost:8000';
 
 /**
- * Check if the backend is alive
- * @returns {Promise<boolean>}
+ * Check if the backend is alive.
  */
 export async function checkBackendHealth() {
   try {
-    const res = await fetch(`${BACKEND_URL}/`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`${BACKEND_URL}/`, {
+      signal: AbortSignal.timeout(4000),
+    });
+
     return res.ok;
   } catch {
     return false;
   }
 }
 
+
+/* ============================================================
+   LEGACY DOCUMENT UPLOAD
+   Used by the existing Upload Document page.
+   POST /api/upload
+   ============================================================ */
+
 /**
- * Upload a document to the Credence backend.
- * Uses exactly: POST /api/upload with multipart/form-data field "file"
+ * Upload a standalone document to the original document
+ * processing endpoint.
  *
  * @param {File} file
  * @param {(progress: number) => void} [onProgress]
@@ -36,7 +40,6 @@ export async function uploadDocument(file, onProgress) {
   const formData = new FormData();
   formData.append('file', file);
 
-  // Use XMLHttpRequest for upload progress reporting
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -44,7 +47,10 @@ export async function uploadDocument(file, onProgress) {
 
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable && onProgress) {
-        const percent = Math.round((event.loaded / event.total) * 100);
+        const percent = Math.round(
+          (event.loaded / event.total) * 100
+        );
+
         onProgress(percent);
       }
     });
@@ -55,30 +61,323 @@ export async function uploadDocument(file, onProgress) {
           const data = JSON.parse(xhr.responseText);
           resolve(data);
         } catch {
-          reject(new Error('Invalid JSON response from backend'));
+          reject(
+            new Error('Invalid JSON response from backend')
+          );
         }
-      } else {
-        let detail = `HTTP ${xhr.status}`;
-        try {
-          const err = JSON.parse(xhr.responseText);
-          detail = err.detail || detail;
-        } catch { /* ignore */ }
-        reject(new Error(detail));
+
+        return;
       }
+
+      let detail = `HTTP ${xhr.status}`;
+
+      try {
+        const err = JSON.parse(xhr.responseText);
+        detail = err.detail || detail;
+      } catch {
+        // Ignore JSON parsing failure.
+      }
+
+      reject(new Error(detail));
     });
 
     xhr.addEventListener('error', () => {
-      reject(new Error('Network error — is the backend running on http://localhost:8000?'));
+      reject(
+        new Error(
+          'Network error — is the backend running on http://localhost:8000?'
+        )
+      );
     });
 
     xhr.addEventListener('timeout', () => {
-      reject(new Error('Request timed out. The backend may be processing the file.'));
+      reject(
+        new Error(
+          'Request timed out. The backend may be processing the file.'
+        )
+      );
     });
 
-    xhr.timeout = 120000; // 2 minutes for AI processing
+    xhr.timeout = 120000;
     xhr.send(formData);
   });
 }
+
+
+/* ============================================================
+   APPLICATIONS
+   ============================================================ */
+
+/**
+ * Get all loan applications.
+ */
+export async function getApplications() {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications`
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/**
+ * Get a single loan application.
+ *
+ * @param {string} applicationId
+ */
+export async function getApplication(applicationId) {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications/${applicationId}`
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/**
+ * Create a new loan application.
+ *
+ * @param {Object} payload
+ */
+export async function createApplication(payload) {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/**
+ * Upload a document to an existing loan application.
+ *
+ * @param {string} applicationId
+ * @param {File} file
+ * @param {(progress: number) => void} [onProgress]
+ */
+export async function uploadApplicationDocument(
+  applicationId,
+  file,
+  onProgress,
+) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(
+      'POST',
+      `${BACKEND_URL}/api/applications/${applicationId}/documents`,
+    );
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = Math.round(
+          (event.loaded / event.total) * 100,
+        );
+
+        onProgress(percent);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(
+            new Error('Invalid JSON response from backend')
+          );
+        }
+
+        return;
+      }
+
+      let detail = `HTTP ${xhr.status}`;
+
+      try {
+        const err = JSON.parse(xhr.responseText);
+        detail = err.detail || detail;
+      } catch {
+        // Ignore JSON parsing failure.
+      }
+
+      reject(new Error(detail));
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(
+        new Error(
+          'Network error — is the backend running on http://localhost:8000?'
+        )
+      );
+    });
+
+    xhr.addEventListener('timeout', () => {
+      reject(
+        new Error(
+          'Request timed out. The backend may be processing the file.'
+        )
+      );
+    });
+
+    xhr.timeout = 120000;
+    xhr.send(formData);
+  });
+}
+
+
+/* ============================================================
+   VALIDATION
+   ============================================================ */
+
+/**
+ * Run validation for an application.
+ *
+ * @param {string} applicationId
+ */
+export async function validateApplication(applicationId) {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications/${applicationId}/validate`,
+    {
+      method: 'POST',
+    }
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/* ============================================================
+   RISK ASSESSMENT
+   ============================================================ */
+
+/**
+ * Run risk assessment for an application.
+ *
+ * @param {string} applicationId
+ */
+export async function assessApplicationRisk(applicationId) {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications/${applicationId}/risk`,
+    {
+      method: 'POST',
+    }
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/* ============================================================
+   AI SUMMARY
+   ============================================================ */
+
+/**
+ * Generate the AI reviewer summary.
+ *
+ * @param {string} applicationId
+ */
+export async function generateApplicationSummary(applicationId) {
+  const res = await fetch(
+    `${BACKEND_URL}/api/applications/${applicationId}/summary`,
+    {
+      method: 'POST',
+    }
+  );
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch {
+      // Ignore JSON parsing failure.
+    }
+
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+
+/* ============================================================
+   DOCUMENT RESPONSE TYPE
+   ============================================================ */
 
 /**
  * @typedef {Object} ExtractedDocument

@@ -13,6 +13,8 @@ import { initSidebar, initNavLinkBehavior } from './sidebar.js';
 import { route, startRouter }               from './router.js';
 import { checkBackendHealth }               from './api.js';
 import { renderDashboard }                  from './pages/dashboard.js';
+import { renderApplicationDetail }          from './pages/application-detail.js';
+import { renderApplications }               from './pages/applications.js';
 import { renderUpload }                     from './pages/upload.js';
 import { renderDocuments }                  from './pages/documents.js';
 import { renderDocumentDetail }             from './pages/document-detail.js';
@@ -22,6 +24,8 @@ import { renderSupport }                    from './pages/support.js';
 
 // ── Register all routes ──────────────────────────────────────
 route('/dashboard',        () => renderDashboard());
+route('/application/([^/]+)', ([id]) => renderApplicationDetail(id));
+route('/applications',     () => renderApplications());
 route('/upload',           () => renderUpload());
 route('/documents',        () => renderDocuments());
 route('/document/([^/]+)', ([id]) => renderDocumentDetail(id));
