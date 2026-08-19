@@ -1,302 +1,1013 @@
 /**
- * pages/dashboard.js — Credence Dashboard
+ * pages/dashboard.js
  *
- * Shows session-level statistics derived from localStorage.
- * Data comes exclusively from documents uploaded during browser sessions.
- * No fabricated backend data.
+ * Database-backed Credence dashboard.
+ *
+ * Source of truth:
+ * GET /api/applications
+ *
+ * The dashboard is application-centric.
+ * Documents are shown as part of the application pipeline.
  */
 
-import { getSessionStats, getAllDocuments, getDocsByType } from '../storage.js';
-import { navigate } from '../router.js';
-import { setActiveNav, setBreadcrumb } from '../sidebar.js';
+import { getApplications } from "../api.js";
+import { navigate } from "../router.js";
+import { setActiveNav, setBreadcrumb } from "../sidebar.js";
+
+
+/* ============================================================
+   PUBLIC PAGE RENDERER
+   ============================================================ */
 
 export async function renderDashboard() {
-  setActiveNav('dashboard');
-  setBreadcrumb(['Credence', 'Dashboard']);
+  setActiveNav("dashboard");
+  setBreadcrumb(["Credence", "Dashboard"]);
 
-  const stats  = getSessionStats();
-  const docs   = getAllDocuments();
-  const recent = docs.slice(0, 7);
+  const content = document.getElementById("page-content");
 
-  const content = document.getElementById('page-content');
-  content.innerHTML = '';
-  content.className = 'page-content page-enter';
+  if (!content) return;
+
+  content.className = "page-content page-enter";
+
+  // Show loading state while fetching database state.
+  content.innerHTML = `
+    <div class="empty-state" style="height:60vh;">
+      <div class="empty-state-icon">
+        <span class="spinner"></span>
+      </div>
+
+      <h3 class="empty-state-title">
+        Loading dashboard...
+      </h3>
+
+      <p class="empty-state-desc">
+        Fetching applications and processing data.
+      </p>
+    </div>
+  `;
+
+  try {
+    const applications = await getApplications();
+    console.log("DASHBOARD APPLICATIONS:", applications);
+    renderDashboardContent(content, applications);
+
+  } catch (error) {
+    console.error("Dashboard load failed:", error);
+
+    content.innerHTML = `
+      <div class="empty-state" style="height:60vh;">
+        <div class="empty-state-icon">
+          <i data-lucide="circle-alert" class="icon-lg"></i>
+        </div>
+
+        <h3 class="empty-state-title">
+          Unable to load dashboard
+        </h3>
+
+        <p class="empty-state-desc">
+          ${escHtml(error.message)}
+        </p>
+
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="dashboard-retry-btn"
+        >
+          <i data-lucide="refresh-cw" class="icon-sm"></i>
+          Retry
+        </button>
+      </div>
+    `;
+
+    if (window.lucide) {
+      lucide.createIcons({ nodes: [content] });
+    }
+
+    content
+      .querySelector("#dashboard-retry-btn")
+      ?.addEventListener("click", () => {
+        renderDashboard();
+      });
+  }
+}
+
+
+/* ============================================================
+   DASHBOARD CONTENT
+   ============================================================ */
+
+function renderDashboardContent(content, applications) {
+
+  const stats = calculateStats(applications);
+
+  const recentApplications = [...applications]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at || 0) -
+        new Date(a.created_at || 0)
+    )
+    .slice(0, 7);
 
   content.innerHTML = `
     <div class="page-header">
+
       <div>
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-subtitle">AI-powered loan document processing overview</p>
-      </div>
-      <a href="#/upload" class="btn btn-primary">
-        <i data-lucide="upload" class="icon-sm"></i>
-        Upload Document
-      </a>
-    </div>
+        <h1 class="page-title">
+          Dashboard
+        </h1>
 
-    ${stats.total === 0 ? renderEmptyDashboard() : renderDashboardContent(stats, recent)}
-  `;
-
-  lucide.createIcons({ nodes: [content] });
-
-  // Animate confidence bars after render
-  setTimeout(() => {
-    if (stats.total > 0 && stats.avgConfidence != null) {
-      animateBar('avg-confidence-bar', stats.avgConfidence * 100);
-    }
-  }, 100);
-}
-
-function renderEmptyDashboard() {
-  return `
-    <div class="empty-state" style="height: 60vh;">
-      <div class="empty-state-icon">
-        <i data-lucide="landmark" class="icon-lg"></i>
-      </div>
-      <h3 class="empty-state-title">Welcome to Credence</h3>
-      <p class="empty-state-desc">
-        AI-powered loan document processing. Upload your first document to see
-        classification results, extracted data, and session analytics here.
-      </p>
-      <a href="#/upload" class="btn btn-primary btn-lg" style="margin-top: 0.5rem;">
-        <i data-lucide="upload" class="icon-sm"></i>
-        Upload Your First Document
-      </a>
-      <p class="text-xs text-muted" style="margin-top: 0.75rem;">
-        Supports PDF, PNG, JPG — Payslips, Bank Statements, Tax Returns, KYC
-      </p>
-    </div>
-  `;
-}
-
-function renderDashboardContent(stats, recent) {
-  const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
-  const avgConfPct  = stats.avgConfidence != null ? Math.round(stats.avgConfidence * 100) : null;
-
-  return `
-    <!-- Session notice -->
-    <div class="session-banner">
-      <i data-lucide="info" class="icon-sm" style="flex-shrink:0;"></i>
-      <span>All statistics are derived from your local browser session history — not a backend database.</span>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid" style="margin-bottom: 1.5rem;">
-
-      <div class="stat-card">
-        <div class="stat-label">
-          <div class="stat-icon" style="background: rgba(99,102,241,0.12); color: #818cf8;">
-            <i data-lucide="files" class="icon-sm"></i>
-          </div>
-          Documents Processed
-        </div>
-        <div class="stat-value">${stats.total}</div>
-        <div class="stat-change">All time in this browser</div>
+        <p class="page-subtitle">
+          AI-powered loan application processing overview
+        </p>
       </div>
 
-      <div class="stat-card">
-        <div class="stat-label">
-          <div class="stat-icon" style="background: rgba(16,185,129,0.12); color: #34d399;">
-            <i data-lucide="check-circle" class="icon-sm"></i>
-          </div>
-          Successful Extractions
-        </div>
-        <div class="stat-value">${stats.success}</div>
-        <div class="stat-change positive">${successRate}% success rate</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">
-          <div class="stat-icon" style="background: rgba(245,158,11,0.12); color: #fbbf24;">
-            <i data-lucide="alert-circle" class="icon-sm"></i>
-          </div>
-          Partial Extractions
-        </div>
-        <div class="stat-value">${stats.partial}</div>
-        <div class="stat-change">Incomplete data extracted</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-label">
-          <div class="stat-icon" style="background: rgba(239,68,68,0.12); color: #f87171;">
-            <i data-lucide="x-circle" class="icon-sm"></i>
-          </div>
-          Failed Extractions
-        </div>
-        <div class="stat-value">${stats.failed}</div>
-        <div class="stat-change ${stats.failed > 0 ? 'negative' : ''}">
-          ${stats.failed === 0 ? 'No failures' : 'Needs review'}
-        </div>
-      </div>
+      <button
+        type="button"
+        class="btn btn-primary"
+        id="dashboard-new-application-btn"
+      >
+        <i data-lucide="plus" class="icon-sm"></i>
+        New Application
+      </button>
 
     </div>
 
-    <!-- Average Confidence + Recent Documents -->
-    <div class="flex gap-4" style="flex-wrap: wrap; align-items: flex-start;">
 
-      <!-- Confidence Card -->
-      <div class="card" style="flex: 1; min-width: 240px;">
+    <!-- ======================================================
+         STATS
+         ====================================================== -->
+
+    <div
+      class="stats-grid"
+      style="margin-bottom:1.5rem;"
+    >
+
+      ${renderStatCard(
+        "Total Applications",
+        stats.total,
+        "files",
+        "All applications"
+      )}
+
+      ${renderStatCard(
+        "Approved",
+        stats.approved,
+        "check-circle",
+        "Risk model approved"
+      )}
+
+      ${renderStatCard(
+        "Review Required",
+        stats.reviewRequired,
+        "alert-triangle",
+        "Needs human review"
+      )}
+
+      ${renderStatCard(
+        "Rejected",
+        stats.rejected,
+        "x-circle",
+        "Risk model rejected"
+      )}
+
+    </div>
+
+
+    <!-- ======================================================
+         PROCESSING OVERVIEW
+         ====================================================== -->
+
+    <div
+      class="flex gap-4"
+      style="
+        flex-wrap:wrap;
+        align-items:flex-start;
+        margin-bottom:1.5rem;
+      "
+    >
+
+      <div
+        class="card"
+        style="flex:1; min-width:260px;"
+      >
+
         <div class="card-header">
           <div>
-            <div class="card-title">Avg. Extraction Confidence</div>
-            <div class="card-description">Across all processed documents</div>
+            <div class="card-title">
+              Processing Overview
+            </div>
+
+            <div class="card-description">
+              Current state across the application pipeline
+            </div>
           </div>
         </div>
+
         <div class="card-content">
-          ${avgConfPct != null ? `
-            <div style="margin-bottom: 1.5rem;">
-              <div class="stat-value" style="font-size: 2.5rem; margin-bottom: 0.25rem;">${avgConfPct}<span style="font-size: 1.25rem; color: var(--fg-muted);">%</span></div>
-              <div class="confidence-track" style="height: 0.625rem;">
-                <div class="confidence-fill ${avgConfPct >= 80 ? 'high' : avgConfPct >= 60 ? 'medium' : 'low'}" id="avg-confidence-bar"></div>
-              </div>
-            </div>
-          ` : '<p class="text-muted">No data yet</p>'}
-          ${renderDocTypeBreakdown()}
+
+          ${renderPipelineRow(
+            "Applications",
+            stats.total,
+            stats.total,
+            "briefcase-business"
+          )}
+
+          ${renderPipelineRow(
+            "Documents",
+            stats.documents,
+            stats.documents,
+            "files"
+          )}
+
+          ${renderPipelineRow(
+            "Validated",
+            stats.validated,
+            stats.total,
+            "shield-check"
+          )}
+
+          ${renderPipelineRow(
+            "Risk Assessed",
+            stats.riskAssessed,
+            stats.total,
+            "chart-no-axes-combined"
+          )}
+
+          ${renderPipelineRow(
+            "Summaries Generated",
+            stats.summaries,
+            stats.total,
+            "sparkles"
+          )}
+
         </div>
+
       </div>
 
-      <!-- Recent Documents -->
-      <div class="card" style="flex: 2; min-width: 320px;">
+
+      <!-- ====================================================
+           DOCUMENT PROCESSING
+           ==================================================== -->
+
+      <div
+        class="card"
+        style="flex:1; min-width:260px;"
+      >
+
         <div class="card-header">
-          <div class="card-title">Recent Documents</div>
-          <a href="#/documents" class="btn btn-outline btn-sm">
-            View all <i data-lucide="chevron-right" class="icon-xs"></i>
-          </a>
+
+          <div>
+            <div class="card-title">
+              Document Processing
+            </div>
+
+            <div class="card-description">
+              Documents attached to applications
+            </div>
+          </div>
+
         </div>
-        <div class="card-content" style="padding-top: 0.75rem;">
-          ${recent.length === 0 ? '<p class="text-muted text-sm">No documents yet</p>' : renderRecentTable(recent)}
+
+        <div class="card-content">
+
+          <div
+            class="stat-value"
+            style="
+              font-size:2.5rem;
+              margin-bottom:0.25rem;
+            "
+          >
+            ${stats.documents}
+          </div>
+
+          <p class="text-sm text-muted">
+            Documents processed across all applications
+          </p>
+
+          <div
+            style="
+              margin-top:1.25rem;
+              padding-top:1rem;
+              border-top:1px solid var(--border);
+            "
+          >
+
+            ${renderDocumentBreakdown(stats.documentsByType)}
+
+          </div>
+
         </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ======================================================
+         RECENT APPLICATIONS
+         ====================================================== -->
+
+    <div class="card">
+
+      <div class="card-header">
+
+        <div>
+          <div class="card-title">
+            Recent Applications
+          </div>
+
+          <div class="card-description">
+            Latest loan applications in the system
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-outline btn-sm"
+          id="dashboard-view-applications-btn"
+        >
+          View all
+          <i data-lucide="chevron-right" class="icon-xs"></i>
+        </button>
+
+      </div>
+
+      <div
+        class="card-content"
+        style="padding-top:0.75rem;"
+      >
+
+        ${
+          recentApplications.length === 0
+            ? `
+              <div
+                class="empty-state"
+                style="padding:3rem 1rem;"
+              >
+                <div class="empty-state-icon">
+                  <i data-lucide="inbox" class="icon-lg"></i>
+                </div>
+
+                <h3 class="empty-state-title">
+                  No applications yet
+                </h3>
+
+                <p class="empty-state-desc">
+                  Create your first loan application to begin processing.
+                </p>
+              </div>
+            `
+            : renderRecentApplications(recentApplications)
+        }
+
       </div>
 
     </div>
   `;
+
+
+  /* ============================================================
+     EVENTS
+     ============================================================ */
+
+  content
+    .querySelector("#dashboard-new-application-btn")
+    ?.addEventListener("click", () => {
+      navigate("/applications");
+    });
+
+  content
+    .querySelector("#dashboard-view-applications-btn")
+    ?.addEventListener("click", () => {
+      navigate("/applications");
+    });
+
+
+  content
+    .querySelectorAll("[data-application-id]")
+    .forEach((row) => {
+
+      row.addEventListener("click", () => {
+
+        const id = row.dataset.applicationId;
+
+        if (id) {
+          navigate(`/application/${id}`);
+        }
+
+      });
+
+    });
+
+
+  if (window.lucide) {
+    lucide.createIcons({ nodes: [content] });
+  }
 }
 
-function renderDocTypeBreakdown() {
-  const byType = getDocsByType();
-  const total  = Object.values(byType).reduce((a, b) => a + b, 0);
-  if (total === 0) return '';
 
-  const typeConfig = {
-    payslip:       { label: 'Payslip',        cls: 'payslip' },
-    bank_statement:{ label: 'Bank Statement', cls: 'bank' },
-    tax_return:    { label: 'Tax Return',     cls: 'tax' },
-    kyc:           { label: 'KYC',            cls: 'kyc' },
+/* ============================================================
+   STATISTICS
+   ============================================================ */
+
+function calculateStats(applications) {
+
+  const stats = {
+    total: applications.length,
+
+    approved: 0,
+    rejected: 0,
+    reviewRequired: 0,
+
+    documents: 0,
+    validated: 0,
+    riskAssessed: 0,
+    summaries: 0,
+
+    documentsByType: {
+      payslip: 0,
+      bank_statement: 0,
+      tax_return: 0,
+      kyc: 0,
+    },
   };
 
-  const rows = Object.entries(typeConfig)
-    .filter(([k]) => byType[k] > 0)
-    .map(([k, cfg]) => {
-      const count = byType[k];
-      const pct   = Math.round((count / total) * 100);
-      return `
-        <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.625rem;">
-          <span class="doc-type-dot ${cfg.cls}"></span>
-          <span class="text-sm" style="flex:1;">${cfg.label}</span>
-          <span class="text-xs font-semibold tabular-nums">${count}</span>
-          <div class="confidence-track" style="width:4rem; height:0.375rem;">
-            <div class="confidence-fill high" style="width:${pct}%;"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
+
+  for (const application of applications) {
+
+    const status = String(
+      application.status || ""
+    ).toLowerCase();
+
+
+    /* --------------------------------------------------------
+       Application status
+       -------------------------------------------------------- */
+
+    if (status === "approved") {
+      stats.approved++;
+    }
+
+    if (status === "rejected") {
+      stats.rejected++;
+    }
+
+    if (
+      status === "review_required" ||
+      status === "review"
+    ) {
+      stats.reviewRequired++;
+    }
+
+
+    /* --------------------------------------------------------
+       Documents
+       -------------------------------------------------------- */
+
+    const documents = application.documents || [];
+
+    stats.documents += documents.length;
+
+    for (const document of documents) {
+
+      const type = document.document_type;
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          stats.documentsByType,
+          type
+        )
+      ) {
+        stats.documentsByType[type]++;
+      }
+
+    }
+
+
+    /* --------------------------------------------------------
+       Pipeline stages
+       -------------------------------------------------------- */
+
+    if (application.validation) {
+      stats.validated++;
+    }
+
+    if (application.risk_assessment) {
+      stats.riskAssessed++;
+    }
+
+    if (application.summary) {
+      stats.summaries++;
+    }
+
+  }
+
+
+  return stats;
+}
+
+
+/* ============================================================
+   UI HELPERS
+   ============================================================ */
+
+function renderStatCard(
+  label,
+  value,
+  icon,
+  description
+) {
 
   return `
-    <div style="border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 0.5rem;">
-      <p class="text-xs font-semibold text-muted" style="margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;">By Document Type</p>
-      ${rows}
+    <div class="stat-card">
+
+      <div class="stat-label">
+
+        <div
+          class="stat-icon"
+          style="
+            background:rgba(99,102,241,0.12);
+            color:#818cf8;
+          "
+        >
+          <i
+            data-lucide="${icon}"
+            class="icon-sm"
+          ></i>
+        </div>
+
+        ${label}
+
+      </div>
+
+      <div class="stat-value">
+        ${value}
+      </div>
+
+      <div class="stat-change">
+        ${description}
+      </div>
+
     </div>
   `;
 }
 
-function renderRecentTable(docs) {
-  const rows = docs.map((d) => {
-    const typeLabel = formatDocType(d.document_type);
-    const conf      = d.extraction_confidence ?? d.classification_confidence;
-    const confPct   = Math.round(conf * 100);
-    const statusCls = d.extraction_status === 'success' ? 'badge-success' : d.extraction_status === 'partial' ? 'badge-warning' : 'badge-error';
-    const time      = formatRelativeTime(d.uploaded_at);
+
+function renderPipelineRow(
+  label,
+  value,
+  total,
+  icon
+) {
+
+  const percentage =
+    total > 0
+      ? Math.round((value / total) * 100)
+      : 0;
+
+  return `
+    <div
+      style="
+        display:flex;
+        align-items:center;
+        gap:0.75rem;
+        margin-bottom:1rem;
+      "
+    >
+
+      <div
+        style="
+          width:2rem;
+          height:2rem;
+          border-radius:var(--radius);
+          background:var(--bg-muted);
+          border:1px solid var(--border);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          flex-shrink:0;
+        "
+      >
+        <i
+          data-lucide="${icon}"
+          class="icon-xs"
+        ></i>
+      </div>
+
+      <div style="flex:1;">
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            margin-bottom:0.375rem;
+          "
+        >
+
+          <span class="text-sm">
+            ${label}
+          </span>
+
+          <span
+            class="text-xs font-semibold tabular-nums"
+          >
+            ${value}/${total}
+          </span>
+
+        </div>
+
+        <div
+          class="confidence-track"
+          style="height:0.375rem;"
+        >
+          <div
+            class="confidence-fill ${
+              percentage >= 80
+                ? "high"
+                : percentage >= 50
+                  ? "medium"
+                  : "low"
+            }"
+            style="width:${percentage}%;"
+          ></div>
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
+
+
+function renderDocumentBreakdown(byType) {
+
+  const config = {
+    payslip: {
+      label: "Payslips",
+      cls: "payslip",
+    },
+
+    bank_statement: {
+      label: "Bank Statements",
+      cls: "bank",
+    },
+
+    tax_return: {
+      label: "Tax Returns",
+      cls: "tax",
+    },
+
+    kyc: {
+      label: "KYC",
+      cls: "kyc",
+    },
+  };
+
+
+  const total = Object.values(byType)
+    .reduce(
+      (sum, value) => sum + value,
+      0
+    );
+
+
+  if (total === 0) {
 
     return `
-      <tr style="cursor:pointer;" onclick="window.location.hash='/document/${d.id}'">
-        <td>
-          <div class="table-filename">
-            <div class="table-filename-icon">
-              <i data-lucide="file-text" class="icon-xs"></i>
-            </div>
-            <span class="truncate" style="max-width: 180px;" title="${escHtml(d.filename)}">${escHtml(d.filename)}</span>
-          </div>
-        </td>
-        <td><span class="badge badge-${getTypeCls(d.document_type)}">${typeLabel}</span></td>
-        <td><span class="badge ${statusCls}">${capitalize(d.extraction_status)}</span></td>
-        <td class="tabular-nums text-right">${confPct}%</td>
-        <td class="text-muted text-xs">${time}</td>
-      </tr>
+      <p class="text-sm text-muted">
+        No documents processed yet.
+      </p>
     `;
-  }).join('');
+  }
+
+
+  return Object.entries(config)
+    .filter(
+      ([key]) =>
+        byType[key] > 0
+    )
+    .map(([key, cfg]) => {
+
+      const count = byType[key];
+
+      const percentage =
+        Math.round(
+          (count / total) * 100
+        );
+
+      return `
+        <div
+          style="
+            display:flex;
+            align-items:center;
+            gap:0.75rem;
+            margin-bottom:0.625rem;
+          "
+        >
+
+          <span
+            class="doc-type-dot ${cfg.cls}"
+          ></span>
+
+          <span
+            class="text-sm"
+            style="flex:1;"
+          >
+            ${cfg.label}
+          </span>
+
+          <span
+            class="text-xs font-semibold tabular-nums"
+          >
+            ${count}
+          </span>
+
+          <div
+            class="confidence-track"
+            style="
+              width:4rem;
+              height:0.375rem;
+            "
+          >
+            <div
+              class="confidence-fill high"
+              style="width:${percentage}%;"
+            ></div>
+          </div>
+
+        </div>
+      `;
+
+    })
+    .join("");
+}
+
+
+function renderRecentApplications(applications) {
+
+  const rows = applications
+    .map((application) => {
+
+      const status =
+        String(
+          application.status || "pending"
+        ).toLowerCase();
+
+      const statusClass =
+        status === "approved"
+          ? "badge-success"
+          : status === "rejected"
+            ? "badge-error"
+            : status === "review_required"
+              ? "badge-warning"
+              : "badge-muted";
+
+
+      const documentCount =
+        (application.documents || []).length;
+
+
+      return `
+        <tr
+          style="cursor:pointer;"
+          data-application-id="${escHtml(application.id)}"
+        >
+
+          <td>
+
+            <div
+              class="table-filename"
+            >
+
+              <div
+                class="table-filename-icon"
+              >
+                <i
+                  data-lucide="user-round"
+                  class="icon-xs"
+                ></i>
+              </div>
+
+              <span
+                class="truncate"
+                style="max-width:180px;"
+                title="${escHtml(application.applicant_name)}"
+              >
+                ${escHtml(
+                  application.applicant_name ||
+                  "Unnamed Applicant"
+                )}
+              </span>
+
+            </div>
+
+          </td>
+
+          <td>
+            <span class="badge badge-muted">
+              ${escHtml(
+                application.loan_type ||
+                "—"
+              )}
+            </span>
+          </td>
+
+          <td>
+            <span class="badge ${statusClass}">
+              ${formatStatus(status)}
+            </span>
+          </td>
+
+          <td class="tabular-nums text-center">
+            ${documentCount}
+          </td>
+
+          <td class="text-muted text-xs">
+            ${formatDate(application.created_at)}
+          </td>
+
+        </tr>
+      `;
+    })
+    .join("");
+
 
   return `
-    <div class="table-wrap" style="border-radius: var(--radius);">
+    <div
+      class="table-wrap"
+      style="border-radius:var(--radius);"
+    >
+
       <table>
+
         <thead>
+
           <tr>
-            <th>Filename</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th style="text-align:right;">Confidence</th>
-            <th>Uploaded</th>
+
+            <th>
+              Applicant
+            </th>
+
+            <th>
+              Loan Type
+            </th>
+
+            <th>
+              Status
+            </th>
+
+            <th>
+              Documents
+            </th>
+
+            <th>
+              Created
+            </th>
+
           </tr>
+
         </thead>
-        <tbody>${rows}</tbody>
+
+        <tbody>
+          ${rows}
+        </tbody>
+
       </table>
+
     </div>
   `;
 }
 
-// ── Helpers ──────────────────────────────────────────────────
 
-function animateBar(id, pct) {
-  const el = document.getElementById(id);
-  if (el) requestAnimationFrame(() => { el.style.width = pct + '%'; });
+/* ============================================================
+   FORMATTING
+   ============================================================ */
+
+function formatStatus(status) {
+
+  const map = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected",
+    review_required: "Review Required",
+    review: "Review",
+  };
+
+  return map[status] || capitalize(status);
+}
+
+
+function formatDate(value) {
+
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }
+  );
+}
+
+
+export function capitalize(value) {
+
+  if (!value) return "";
+
+  return (
+    value.charAt(0).toUpperCase() +
+    value.slice(1)
+  );
+}
+
+
+export function escHtml(value) {
+
+  const element =
+    document.createElement("div");
+
+  element.textContent =
+    String(value ?? "");
+
+  return element.innerHTML;
+}
+
+
+/* ============================================================
+   COMPATIBILITY HELPERS
+   ============================================================ */
+
+/*
+ * upload.js currently imports these helpers from dashboard.js.
+ * Keep them exported so we don't break the upload page while
+ * replacing the old localStorage dashboard.
+ */
+
+export function formatRelativeTime(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) {
+    return "Just now";
+  }
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  if (days < 7) {
+    return `${days}d ago`;
+  }
+
+  return date.toLocaleDateString();
 }
 
 export function formatDocType(type) {
+
   const map = {
-    payslip:        'Payslip',
-    bank_statement: 'Bank Statement',
-    tax_return:     'Tax Return',
-    kyc:            'KYC',
+    payslip: "Payslip",
+    bank_statement: "Bank Statement",
+    tax_return: "Tax Return",
+    kyc: "KYC",
   };
+
   return map[type] ?? type;
 }
 
+
 export function getTypeCls(type) {
+
   const map = {
-    payslip:        'payslip',
-    bank_statement: 'bank',
-    tax_return:     'tax',
-    kyc:            'kyc',
+    payslip: "payslip",
+    bank_statement: "bank",
+    tax_return: "tax",
+    kyc: "kyc",
   };
-  return map[type] ?? 'muted';
-}
 
-export function formatRelativeTime(ts) {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1)   return 'just now';
-  if (mins < 60)  return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-export function capitalize(str) {
-  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
-}
-
-export function escHtml(str) {
-  const d = document.createElement('div');
-  d.textContent = String(str ?? '');
-  return d.innerHTML;
+  return map[type] ?? "muted";
 }
