@@ -4,14 +4,21 @@
  * Single source of truth for all backend communication.
  */
 
-export const BACKEND_URL = 'http://localhost:8000';
+export const BACKEND_URL = "http://localhost:8000";
+
+export function getBackendUrl() {
+  return (localStorage.getItem("credence_backend_url") || BACKEND_URL).replace(
+    /\/+$/,
+    "",
+  );
+}
 
 /**
  * Check if the backend is alive.
  */
 export async function checkBackendHealth() {
   try {
-    const res = await fetch(`${BACKEND_URL}/`, {
+    const res = await fetch(`${getBackendUrl()}/`, {
       signal: AbortSignal.timeout(4000),
     });
 
@@ -20,7 +27,6 @@ export async function checkBackendHealth() {
     return false;
   }
 }
-
 
 /* ============================================================
    LEGACY DOCUMENT UPLOAD
@@ -38,32 +44,28 @@ export async function checkBackendHealth() {
  */
 export async function uploadDocument(file, onProgress) {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append("file", file);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.open('POST', `${BACKEND_URL}/api/upload`);
+    xhr.open("POST", `${getBackendUrl()}/api/upload`);
 
-    xhr.upload.addEventListener('progress', (event) => {
+    xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && onProgress) {
-        const percent = Math.round(
-          (event.loaded / event.total) * 100
-        );
+        const percent = Math.round((event.loaded / event.total) * 100);
 
         onProgress(percent);
       }
     });
 
-    xhr.addEventListener('load', () => {
+    xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const data = JSON.parse(xhr.responseText);
           resolve(data);
         } catch {
-          reject(
-            new Error('Invalid JSON response from backend')
-          );
+          reject(new Error("Invalid JSON response from backend"));
         }
 
         return;
@@ -81,19 +83,17 @@ export async function uploadDocument(file, onProgress) {
       reject(new Error(detail));
     });
 
-    xhr.addEventListener('error', () => {
+    xhr.addEventListener("error", () => {
       reject(
         new Error(
-          'Network error — is the backend running on http://localhost:8000?'
-        )
+          "Network error — is the backend running on http://localhost:8000?",
+        ),
       );
     });
 
-    xhr.addEventListener('timeout', () => {
+    xhr.addEventListener("timeout", () => {
       reject(
-        new Error(
-          'Request timed out. The backend may be processing the file.'
-        )
+        new Error("Request timed out. The backend may be processing the file."),
       );
     });
 
@@ -101,7 +101,6 @@ export async function uploadDocument(file, onProgress) {
     xhr.send(formData);
   });
 }
-
 
 /* ============================================================
    APPLICATIONS
@@ -111,9 +110,7 @@ export async function uploadDocument(file, onProgress) {
  * Get all loan applications.
  */
 export async function getApplications() {
-  const res = await fetch(
-    `${BACKEND_URL}/api/applications`
-  );
+  const res = await fetch(`${getBackendUrl()}/api/applications`);
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
@@ -130,7 +127,6 @@ export async function getApplications() {
 
   return res.json();
 }
-
 
 /**
  * Get a single loan application.
@@ -139,7 +135,7 @@ export async function getApplications() {
  */
 export async function getApplication(applicationId) {
   const res = await fetch(
-    `${BACKEND_URL}/api/applications/${applicationId}`
+    `${getBackendUrl()}/api/applications/${applicationId}`,
   );
 
   if (!res.ok) {
@@ -157,7 +153,6 @@ export async function getApplication(applicationId) {
 
   return res.json();
 }
-
 
 /**
  * Create a new loan application.
@@ -165,16 +160,13 @@ export async function getApplication(applicationId) {
  * @param {Object} payload
  */
 export async function createApplication(payload) {
-  const res = await fetch(
-    `${BACKEND_URL}/api/applications`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+  const res = await fetch(`${getBackendUrl()}/api/applications`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
@@ -191,7 +183,6 @@ export async function createApplication(payload) {
 
   return res.json();
 }
-
 
 /**
  * Upload a document to an existing loan application.
@@ -206,34 +197,30 @@ export async function uploadApplicationDocument(
   onProgress,
 ) {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append("file", file);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     xhr.open(
-      'POST',
-      `${BACKEND_URL}/api/applications/${applicationId}/documents`,
+      "POST",
+      `${getBackendUrl()}/api/applications/${applicationId}/documents`,
     );
 
-    xhr.upload.addEventListener('progress', (event) => {
+    xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && onProgress) {
-        const percent = Math.round(
-          (event.loaded / event.total) * 100,
-        );
+        const percent = Math.round((event.loaded / event.total) * 100);
 
         onProgress(percent);
       }
     });
 
-    xhr.addEventListener('load', () => {
+    xhr.addEventListener("load", () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           resolve(JSON.parse(xhr.responseText));
         } catch {
-          reject(
-            new Error('Invalid JSON response from backend')
-          );
+          reject(new Error("Invalid JSON response from backend"));
         }
 
         return;
@@ -251,19 +238,17 @@ export async function uploadApplicationDocument(
       reject(new Error(detail));
     });
 
-    xhr.addEventListener('error', () => {
+    xhr.addEventListener("error", () => {
       reject(
         new Error(
-          'Network error — is the backend running on http://localhost:8000?'
-        )
+          "Network error — is the backend running on http://localhost:8000?",
+        ),
       );
     });
 
-    xhr.addEventListener('timeout', () => {
+    xhr.addEventListener("timeout", () => {
       reject(
-        new Error(
-          'Request timed out. The backend may be processing the file.'
-        )
+        new Error("Request timed out. The backend may be processing the file."),
       );
     });
 
@@ -271,7 +256,6 @@ export async function uploadApplicationDocument(
     xhr.send(formData);
   });
 }
-
 
 /* ============================================================
    VALIDATION
@@ -284,10 +268,10 @@ export async function uploadApplicationDocument(
  */
 export async function validateApplication(applicationId) {
   const res = await fetch(
-    `${BACKEND_URL}/api/applications/${applicationId}/validate`,
+    `${getBackendUrl()}/api/applications/${applicationId}/validate`,
     {
-      method: 'POST',
-    }
+      method: "POST",
+    },
   );
 
   if (!res.ok) {
@@ -305,7 +289,6 @@ export async function validateApplication(applicationId) {
 
   return res.json();
 }
-
 
 /* ============================================================
    RISK ASSESSMENT
@@ -318,10 +301,10 @@ export async function validateApplication(applicationId) {
  */
 export async function assessApplicationRisk(applicationId) {
   const res = await fetch(
-    `${BACKEND_URL}/api/applications/${applicationId}/risk`,
+    `${getBackendUrl()}/api/applications/${applicationId}/risk`,
     {
-      method: 'POST',
-    }
+      method: "POST",
+    },
   );
 
   if (!res.ok) {
@@ -339,7 +322,6 @@ export async function assessApplicationRisk(applicationId) {
 
   return res.json();
 }
-
 
 /* ============================================================
    AI SUMMARY
@@ -352,10 +334,10 @@ export async function assessApplicationRisk(applicationId) {
  */
 export async function generateApplicationSummary(applicationId) {
   const res = await fetch(
-    `${BACKEND_URL}/api/applications/${applicationId}/summary`,
+    `${getBackendUrl()}/api/applications/${applicationId}/summary`,
     {
-      method: 'POST',
-    }
+      method: "POST",
+    },
   );
 
   if (!res.ok) {
@@ -373,7 +355,6 @@ export async function generateApplicationSummary(applicationId) {
 
   return res.json();
 }
-
 
 /* ============================================================
    DOCUMENT RESPONSE TYPE

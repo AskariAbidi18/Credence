@@ -31,10 +31,10 @@ export async function renderSupport() {
           <h3 style="font-size:1rem; font-weight:600;">Uploading Documents</h3>
         </div>
         <p class="text-sm text-muted" style="line-height:1.7;">
-          Go to <strong>Upload Document</strong> in the sidebar. Drag and drop
-          or browse for a PDF, PNG, or JPG file (max 20MB). The AI will
-          automatically classify and extract structured data.
-        </p>
+  Processed documents are associated with their loan applications
+  and retrieved from the Credence backend. Document History lets you
+  search and filter documents across processed applications.
+</p>
       </div>
 
       <div class="support-card">
@@ -59,10 +59,10 @@ export async function renderSupport() {
           <h3 style="font-size:1rem; font-weight:600;">Confidence Scores</h3>
         </div>
         <p class="text-sm text-muted" style="line-height:1.7;">
-          Each result shows a classification confidence and extraction confidence.
-          Scores above 80% are reliable. Partial extractions (60–79%) may have
-          missing fields. Below 60% should be manually reviewed.
-        </p>
+  Each result includes classification and extraction confidence scores.
+  Higher scores indicate greater model confidence. Partial or failed
+  extractions should be reviewed before relying on the extracted data.
+</p>
       </div>
 
       <div class="support-card">
@@ -118,11 +118,19 @@ export async function renderSupport() {
       </div>
       <div class="card-content">
         <div style="background:var(--bg-subtle); border:1px solid var(--border); border-radius:var(--radius); padding:1rem; font-family:'JetBrains Mono', monospace; font-size:0.8125rem; overflow-x:auto;">
-          <p style="color:var(--success); margin-bottom:0.5rem;">POST /api/upload</p>
-          <p style="color:var(--fg-muted);">Content-Type: multipart/form-data</p>
-          <p style="color:var(--fg-muted);">Body field: file (PDF / PNG / JPG)</p>
+          <p style="color:var(--success); margin-bottom:0.5rem;">
+  POST /api/applications/{applicationId}/documents
+</p>
+<p style="color:var(--fg-muted);">
+  Content-Type: multipart/form-data
+</p>
+<p style="color:var(--fg-muted);">
+  Body field: file (PDF / PNG / JPG)
+</p>
           <br>
-          <p style="color:var(--fg-muted);">Response: ExtractedDocument JSON</p>
+          <p style="color:var(--fg-muted);">
+  Response: ExtractedDocument JSON
+</p>
           <p style="color:var(--fg-muted);">  → document_id, filename, document_type</p>
           <p style="color:var(--fg-muted);">  → classification_confidence</p>
           <p style="color:var(--fg-muted);">  → extraction_confidence</p>
