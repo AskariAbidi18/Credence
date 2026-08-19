@@ -4,25 +4,172 @@ Application API routes for Credence.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import shutil
+from pathlib import Path
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+)
 from sqlalchemy.orm import Session
 
+from app.agents.classifier import classify_document
+from app.agents.extractors import extract_document
 from app.db.database import get_db
-from app.db.models import Application
+from app.db.models import (
+    Application,
+    Document,
+    Summary,
+    ValidationFlag as ValidationFlagModel,
+)
 from app.schemas.application import (
     ApplicationCreate,
     ApplicationResponse,
 )
-
+from app.schemas.documents import (
+    DocumentType,
+    ExtractedDocument,
+)
+from app.schemas.validation import (
+    ValidationFlag as ValidationFlagSchema,
+    ValidationResult,
+)
+from app.services.csv_storage import save_extraction_to_csv
 from app.services.risk import (
     RiskAssessmentError,
     assess_loan_risk,
 )
+from app.services.validation import validate_application
+from app.services.summary import (
+    SummaryGenerationError,
+    generate_application_summary,
+)
+from app.schemas.summary import LoanSummary
+
 
 router = APIRouter(
     prefix="/api/applications",
     tags=["Applications"],
 )
+
+
+UPLOAD_DIR = (
+    Path(__file__).parent.parent.parent / "uploads"
+)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _document_to_schema(
+    document: Document,
+) -> ExtractedDocument:
+    """Convert a database Document into the API schema."""
+
+    return ExtractedDocument(
+        document_id=document.id,
+        filename=document.filename,
+        document_type=DocumentType(document.document_type),
+        classification_confidence=(
+            document.classification_confidence
+        ),
+        extraction_confidence=document.extraction_confidence,
+        data=document.extracted_data,
+        extraction_status=document.extraction_status,
+    )
+
+
+def _validation_to_schema(
+    application: Application,
+) -> ValidationResult | None:
+    """
+    Reconstruct the validation result from persisted
+    validation flags.
+    """
+
+    if not application.validation_flags:
+        return None
+
+    flags = [
+        ValidationFlagSchema(
+            category=flag.category,
+            severity=flag.severity,
+            title=flag.title,
+            reason=flag.reason,
+            documents_involved=flag.documents_involved,
+            expected=flag.expected,
+            observed=flag.observed,
+        )
+        for flag in application.validation_flags
+    ]
+
+    missing_documents = [
+        flag.expected
+        for flag in flags
+        if (
+            flag.category.value == "document_completeness"
+            and flag.expected
+        )
+    ]
+
+    passed = not any(
+        flag.severity.value == "critical"
+        for flag in flags
+    )
+
+    confidence = max(
+        0.0,
+        1.0
+        - sum(
+            0.20
+            if flag.severity.value == "critical"
+            else 0.05
+            for flag in flags
+        ),
+    )
+
+    return ValidationResult(
+        application_id=application.id,
+        passed=passed,
+        flags=flags,
+        missing_documents=missing_documents,
+        validation_confidence=confidence,
+    )
+
+
+def _summary_to_schema(
+    application: Application,
+) -> LoanSummary | None:
+    """Convert persisted summary into the API schema."""
+
+    if application.summary is None:
+        return None
+
+    return LoanSummary(
+        application_id=application.id,
+        applicant_profile=application.summary.applicant_profile,
+        income_assessment=application.summary.income_assessment,
+        overall_assessment=application.summary.overall_assessment,
+        risk_level=application.summary.risk_level,
+        model_risk=application.summary.model_risk,
+        review_required=application.summary.review_required,
+        review_reasons=application.summary.flags,
+        flags=application.summary.flags,
+        missing_documents=application.summary.missing_documents,
+        recommendation=application.summary.recommendation,
+        reviewer_summary=application.summary.reviewer_summary,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Create application
+# ---------------------------------------------------------------------------
 
 
 @router.post(
@@ -72,6 +219,11 @@ def create_application(
     )
 
 
+# ---------------------------------------------------------------------------
+# Get application
+# ---------------------------------------------------------------------------
+
+
 @router.get(
     "/{application_id}",
     response_model=ApplicationResponse,
@@ -80,7 +232,7 @@ def get_application(
     application_id: str,
     db: Session = Depends(get_db),
 ) -> ApplicationResponse:
-    """Get an application by ID."""
+    """Get an application and its associated data."""
 
     application = (
         db.query(Application)
@@ -100,9 +252,12 @@ def get_application(
         applicant_name=application.applicant_name,
         loan_type=application.loan_type,
         loan_data=application.loan_data or None,
-        documents=[],
-        validation=None,
-        summary=None,
+        documents=[
+            _document_to_schema(document)
+            for document in application.documents
+        ],
+        validation=_validation_to_schema(application),
+        summary=_summary_to_schema(application),
         risk_assessment=(
             application.risk_assessment
             if application.risk_assessment
@@ -111,6 +266,12 @@ def get_application(
         created_at=application.created_at,
         updated_at=application.updated_at,
     )
+
+
+# ---------------------------------------------------------------------------
+# Loan risk assessment
+# ---------------------------------------------------------------------------
+
 
 @router.post(
     "/{application_id}/risk",
@@ -138,6 +299,7 @@ def assess_application_risk(
 
     try:
         risk_result = assess_loan_risk(loan_data)
+
     except RiskAssessmentError as exc:
         raise HTTPException(
             status_code=400,
@@ -160,10 +322,338 @@ def assess_application_risk(
         applicant_name=application.applicant_name,
         loan_type=application.loan_type,
         loan_data=application.loan_data or None,
-        documents=[],
-        validation=None,
-        summary=None,
+        documents=[
+            _document_to_schema(document)
+            for document in application.documents
+        ],
+        validation=_validation_to_schema(application),
+        summary=_summary_to_schema(application),
         risk_assessment=risk_result,
+        created_at=application.created_at,
+        updated_at=application.updated_at,
+    )
+
+
+@router.post(
+    "/{application_id}/summary",
+    response_model=ApplicationResponse,
+)
+async def generate_application_summary_endpoint(
+    application_id: str,
+    db: Session = Depends(get_db),
+) -> ApplicationResponse:
+    """
+    Generate an explainable reviewer summary for an application.
+
+    The risk model and validation engine remain authoritative.
+    The LLM only explains and synthesizes their results.
+    """
+
+    application = (
+        db.query(Application)
+        .filter(Application.id == application_id)
+        .first()
+    )
+
+    if application is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found.",
+        )
+
+    if not application.risk_assessment:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Risk assessment must be completed "
+                "before generating a summary."
+            ),
+        )
+
+    try:
+        summary = await generate_application_summary(
+            application
+        )
+
+    except SummaryGenerationError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(exc),
+        ) from exc
+
+    # ---------------------------------------------------------------
+    # Replace existing summary if one already exists
+    # ---------------------------------------------------------------
+
+    if application.summary is not None:
+        db.delete(application.summary)
+        db.flush()
+
+    db_summary = Summary(
+        application_id=application.id,
+        applicant_profile=(
+            summary.applicant_profile.model_dump()
+        ),
+        income_assessment=summary.income_assessment,
+        overall_assessment=summary.overall_assessment,
+        risk_level=summary.risk_level,
+        model_risk=summary.model_risk,
+        review_required=summary.review_required,
+        flags=summary.flags,
+        missing_documents=summary.missing_documents,
+        recommendation=summary.recommendation,
+        reviewer_summary=summary.reviewer_summary,
+    )
+
+    db.add(db_summary)
+
+    db.commit()
+    db.refresh(application)
+
+    return ApplicationResponse(
+        id=application.id,
+        status=application.status,
+        applicant_name=application.applicant_name,
+        loan_type=application.loan_type,
+        loan_data=application.loan_data or None,
+        documents=[
+            _document_to_schema(document)
+            for document in application.documents
+        ],
+        validation=_validation_to_schema(application),
+        summary=_summary_to_schema(application),
+        risk_assessment=(
+            application.risk_assessment
+            if application.risk_assessment
+            else None
+        ),
+        created_at=application.created_at,
+        updated_at=application.updated_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Application document upload
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{application_id}/documents",
+    response_model=ExtractedDocument,
+)
+async def upload_application_document(
+    application_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> ExtractedDocument:
+    """
+    Upload, classify, extract, and attach a document
+    to an existing loan application.
+    """
+
+    application = (
+        db.query(Application)
+        .filter(Application.id == application_id)
+        .first()
+    )
+
+    if application is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found.",
+        )
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="No filename provided.",
+        )
+
+    safe_filename = Path(file.filename).name
+    file_path = UPLOAD_DIR / safe_filename
+
+    try:
+        # ---------------------------------------------------------------
+        # 1. Save uploaded file
+        # ---------------------------------------------------------------
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # ---------------------------------------------------------------
+        # 2. Classify document
+        # ---------------------------------------------------------------
+
+        classification = await classify_document(
+            file_path
+        )
+
+        # ---------------------------------------------------------------
+        # 3. Extract structured data
+        # ---------------------------------------------------------------
+
+        extracted = await extract_document(
+            file_path,
+            classification.document_type,
+            classification.confidence,
+        )
+
+        # ---------------------------------------------------------------
+        # 4. Persist document against application
+        # ---------------------------------------------------------------
+
+        db_document = Document(
+            id=extracted.document_id,
+            application_id=application.id,
+            filename=extracted.filename,
+            document_type=extracted.document_type.value,
+            classification_confidence=(
+                extracted.classification_confidence
+            ),
+            extraction_confidence=(
+                extracted.extraction_confidence
+            ),
+            extracted_data=extracted.data,
+            extraction_status=extracted.extraction_status,
+        )
+
+        db.add(db_document)
+        db.commit()
+
+        # ---------------------------------------------------------------
+        # 5. Preserve existing CSV storage
+        # ---------------------------------------------------------------
+
+        save_extraction_to_csv(extracted)
+
+        return extracted
+
+    except ValueError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=422,
+            detail=f"Document classification failed: {exc}",
+        ) from exc
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to process document "
+                f"'{safe_filename}': {exc}",
+            ),
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
+# Application validation
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{application_id}/validate",
+    response_model=ApplicationResponse,
+)
+def validate_application_endpoint(
+    application_id: str,
+    db: Session = Depends(get_db),
+) -> ApplicationResponse:
+    """
+    Run deterministic validation checks for an application.
+    """
+
+    application = (
+        db.query(Application)
+        .filter(Application.id == application_id)
+        .first()
+    )
+
+    if application is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Application not found.",
+        )
+
+    # ---------------------------------------------------------------
+    # 1. Run validation rules
+    # ---------------------------------------------------------------
+
+    validation_result = validate_application(
+        application
+    )
+
+    # ---------------------------------------------------------------
+    # 2. Remove previous validation flags
+    # ---------------------------------------------------------------
+
+    for existing_flag in list(
+        application.validation_flags
+    ):
+        db.delete(existing_flag)
+
+    db.flush()
+
+    # ---------------------------------------------------------------
+    # 3. Persist new validation flags
+    # ---------------------------------------------------------------
+
+    for flag in validation_result.flags:
+
+        db_flag = ValidationFlagModel(
+            application_id=application.id,
+            severity=flag.severity.value,
+            category=flag.category.value,
+            title=flag.title,
+            reason=flag.reason,
+            documents_involved=flag.documents_involved,
+            expected=flag.expected,
+            observed=flag.observed,
+        )
+
+        db.add(db_flag)
+
+    # ---------------------------------------------------------------
+    # 4. Determine application workflow status
+    # ---------------------------------------------------------------
+
+    # Validation does NOT approve or reject the loan.
+    #
+    # If required documents are missing or validation contains
+    # critical issues, the application requires manual review.
+
+    if (
+        not validation_result.passed
+        or validation_result.missing_documents
+    ):
+        application.status = "review_required"
+
+    db.commit()
+    db.refresh(application)
+
+    # ---------------------------------------------------------------
+    # 5. Return complete application state
+    # ---------------------------------------------------------------
+
+    return ApplicationResponse(
+        id=application.id,
+        status=application.status,
+        applicant_name=application.applicant_name,
+        loan_type=application.loan_type,
+        loan_data=application.loan_data or None,
+        documents=[
+            _document_to_schema(document)
+            for document in application.documents
+        ],
+        validation=validation_result,
+        summary=_summary_to_schema(application),
+        risk_assessment=(
+            application.risk_assessment
+            if application.risk_assessment
+            else None
+        ),
         created_at=application.created_at,
         updated_at=application.updated_at,
     )
