@@ -161,7 +161,8 @@ APPLICATION DATA:
                         "component of the Credence loan processing "
                         "system. You explain deterministic outputs. "
                         "You do not make independent lending decisions. "
-                        "Return JSON only."
+                        "Return ONLY valid JSON. Do not output reasoning, "
+                        "analysis, markdown, or <think> tags."
                     ),
                 },
                 {
@@ -170,6 +171,9 @@ APPLICATION DATA:
                 },
             ],
             temperature=0,
+            reasoning_effort="none",
+            response_format={"type": "json_object"},
+            max_completion_tokens=2048,
         )
 
     except Exception as exc:
@@ -183,6 +187,10 @@ APPLICATION DATA:
         raise SummaryGenerationError(
             "LLM returned an empty response."
         )
+
+    print("\n========== RAW LLM SUMMARY RESPONSE ==========")
+    print(content)
+    print("==============================================\n")
 
     try:
         data = extract_json(content)

@@ -218,6 +218,49 @@ def create_application(
         updated_at=db_application.updated_at,
     )
 
+# ---------------------------------------------------------------------------
+# List applications
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "",
+    response_model=list[ApplicationResponse],
+)
+def list_applications(
+    db: Session = Depends(get_db),
+) -> list[ApplicationResponse]:
+    """Return all loan applications."""
+
+    applications = (
+        db.query(Application)
+        .order_by(Application.created_at.desc())
+        .all()
+    )
+
+    return [
+        ApplicationResponse(
+            id=application.id,
+            status=application.status,
+            applicant_name=application.applicant_name,
+            loan_type=application.loan_type,
+            loan_data=application.loan_data or None,
+            documents=[
+                _document_to_schema(document)
+                for document in application.documents
+            ],
+            validation=_validation_to_schema(application),
+            summary=_summary_to_schema(application),
+            risk_assessment=(
+                application.risk_assessment
+                if application.risk_assessment
+                else None
+            ),
+            created_at=application.created_at,
+            updated_at=application.updated_at,
+        )
+        for application in applications
+    ]
 
 # ---------------------------------------------------------------------------
 # Get application
