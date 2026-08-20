@@ -4,7 +4,9 @@
  * Single source of truth for all backend communication.
  */
 
-export const BACKEND_URL = "http://localhost:8000";
+export const BACKEND_URL =
+  localStorage.getItem("credence_backend_url") ||
+  "http://localhost:8000";
 
 export function getBackendUrl() {
   return (localStorage.getItem("credence_backend_url") || BACKEND_URL).replace(
