@@ -1134,7 +1134,6 @@ function attachApplicationEvents(container, applicationId) {
           "success",
           "Validation complete",
         );
-        console.log("VALIDATION RESULT:", result);
       } catch (error) {
         console.error(error);
 
@@ -1259,7 +1258,6 @@ function attachApplicationEvents(container, applicationId) {
 
         const result = await uploadApplicationDocument(applicationId, file);
 
-        console.log("Application document uploaded:", result);
 
         /*
          * The upload endpoint returns the extracted document.

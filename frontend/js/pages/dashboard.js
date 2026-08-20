@@ -48,7 +48,6 @@ export async function renderDashboard() {
 
   try {
     const applications = await getApplications();
-    console.log("DASHBOARD APPLICATIONS:", applications);
     renderDashboardContent(content, applications);
 
   } catch (error) {

@@ -6,26 +6,58 @@
  * Data is read from localStorage only.
  */
 
-import { getDocument } from '../storage.js';
-import { setActiveNav, setBreadcrumb } from '../sidebar.js';
-import { formatDocType, getTypeCls, formatRelativeTime, escHtml, capitalize } from './dashboard.js';
-import { navigate } from '../router.js';
+import { getApplications } from "../api.js";
+import { setActiveNav, setBreadcrumb } from "../sidebar.js";
+import {
+  formatDocType,
+  getTypeCls,
+  formatRelativeTime,
+  escHtml,
+  capitalize,
+} from "./dashboard.js";
+import { navigate } from "../router.js";
 
 export async function renderDocumentDetail(id) {
-  setActiveNav('documents');
+  setActiveNav("documents");
 
-  const content = document.getElementById('page-content');
-  content.innerHTML = '';
-  content.className = 'page-content page-enter';
+  const content = document.getElementById("page-content");
+  content.innerHTML = "";
+  content.className = "page-content page-enter";
 
-  const doc = getDocument(id);
+  let doc;
+
+  try {
+    const applications = await getApplications();
+
+    const application = applications.find((app) =>
+      (app.documents || []).some((document) => document.document_id === id),
+    );
+
+    if (application) {
+      const document = application.documents.find(
+        (document) => document.document_id === id,
+      );
+
+      doc = {
+        ...document,
+        id: document.document_id,
+        uploaded_at: application.updated_at || application.created_at,
+        raw_json: JSON.stringify(document, null, 2),
+      };
+    }
+  } catch (error) {
+    console.error("Failed to load document:", error);
+  }
 
   if (!doc) {
     content.innerHTML = `
       <div class="empty-state" style="height:60vh;">
         <div class="empty-state-icon"><i data-lucide="file-x" class="icon-lg"></i></div>
         <h3 class="empty-state-title">Document Not Found</h3>
-        <p class="empty-state-desc">This document was not found in your local history. It may have been deleted or opened in a different browser.</p>
+        <p class="empty-state-desc">
+  This document could not be found in the Credence application records.
+  It may have been deleted.
+</p>
         <a href="#/documents" class="btn btn-primary" style="margin-top:0.5rem;">
           <i data-lucide="arrow-left" class="icon-sm"></i>
           Back to History
@@ -33,18 +65,22 @@ export async function renderDocumentDetail(id) {
       </div>
     `;
     lucide.createIcons({ nodes: [content] });
-    setBreadcrumb(['Credence', 'Documents', 'Not Found']);
+    setBreadcrumb(["Credence", "Documents", "Not Found"]);
     return;
   }
 
-  setBreadcrumb(['Credence', 'Documents', doc.filename]);
+  setBreadcrumb(["Credence", "Documents", doc.filename]);
 
-  const typeLabel  = formatDocType(doc.document_type);
-  const typeCls    = getTypeCls(doc.document_type);
-  const classConf  = doc.classification_confidence;
-  const extConf    = doc.extraction_confidence;
-  const statusBadge = doc.extraction_status === 'success' ? 'badge-success'
-                    : doc.extraction_status === 'partial'  ? 'badge-warning' : 'badge-error';
+  const typeLabel = formatDocType(doc.document_type);
+  const typeCls = getTypeCls(doc.document_type);
+  const classConf = doc.classification_confidence;
+  const extConf = doc.extraction_confidence;
+  const statusBadge =
+    doc.extraction_status === "success"
+      ? "badge-success"
+      : doc.extraction_status === "partial"
+        ? "badge-warning"
+        : "badge-error";
 
   content.innerHTML = `
     <!-- Back nav -->
@@ -83,10 +119,14 @@ export async function renderDocumentDetail(id) {
           </div>
           <div class="card-content">
             <div style="display:flex; flex-direction:column; gap:1.125rem;">
-              ${renderConfBar('Classification Confidence', classConf)}
-              ${extConf != null ? renderConfBar('Extraction Confidence', extConf) : `
+              ${renderConfBar("Classification Confidence", classConf)}
+              ${
+                extConf != null
+                  ? renderConfBar("Extraction Confidence", extConf)
+                  : `
                 <p class="text-sm text-muted">Extraction confidence not available</p>
-              `}
+              `
+              }
             </div>
           </div>
         </div>
@@ -98,12 +138,12 @@ export async function renderDocumentDetail(id) {
           </div>
           <div class="card-content">
             <div style="display:flex; flex-direction:column; gap:1rem;">
-              ${metaRow('Filename',     escHtml(doc.filename))}
-              ${metaRow('Document ID',  `<span class="font-mono text-xs">${escHtml(doc.id)}</span>`)}
-              ${metaRow('Type',         `<span class="badge badge-${typeCls}">${typeLabel}</span>`)}
-              ${metaRow('Status',       `<span class="badge ${statusBadge}">${capitalize(doc.extraction_status)}</span>`)}
-              ${metaRow('Processed',    formatRelativeTime(doc.uploaded_at))}
-              ${metaRow('Processed At', new Date(doc.uploaded_at).toLocaleString())}
+              ${metaRow("Filename", escHtml(doc.filename))}
+              ${metaRow("Document ID", `<span class="font-mono text-xs">${escHtml(doc.id)}</span>`)}
+              ${metaRow("Type", `<span class="badge badge-${typeCls}">${typeLabel}</span>`)}
+              ${metaRow("Status", `<span class="badge ${statusBadge}">${capitalize(doc.extraction_status)}</span>`)}
+              ${metaRow("Processed", formatRelativeTime(doc.uploaded_at))}
+              ${metaRow("Processed At", new Date(doc.uploaded_at).toLocaleString())}
             </div>
           </div>
         </div>
@@ -150,17 +190,20 @@ export async function renderDocumentDetail(id) {
 
   // Animate confidence bars
   setTimeout(() => {
-    content.querySelectorAll('.confidence-fill[data-target]').forEach((el) => {
-      el.style.width = el.dataset.target + '%';
+    content.querySelectorAll(".confidence-fill[data-target]").forEach((el) => {
+      el.style.width = el.dataset.target + "%";
     });
   }, 100);
 
   // JSON toggle
-  document.getElementById('json-toggle')?.addEventListener('click', () => {
-    const panel   = document.getElementById('json-content');
-    const chevron = document.getElementById('json-chevron');
-    panel?.classList.toggle('open');
-    if (chevron) chevron.style.transform = panel?.classList.contains('open') ? 'rotate(180deg)' : '';
+  document.getElementById("json-toggle")?.addEventListener("click", () => {
+    const panel = document.getElementById("json-content");
+    const chevron = document.getElementById("json-chevron");
+    panel?.classList.toggle("open");
+    if (chevron)
+      chevron.style.transform = panel?.classList.contains("open")
+        ? "rotate(180deg)"
+        : "";
   });
 }
 
@@ -168,8 +211,13 @@ export async function renderDocumentDetail(id) {
 
 function renderConfBar(label, value) {
   const pct = Math.round(value * 100);
-  const cls = pct >= 80 ? 'high' : pct >= 60 ? 'medium' : 'low';
-  const color = pct >= 80 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--error)';
+  const cls = pct >= 80 ? "high" : pct >= 60 ? "medium" : "low";
+  const color =
+    pct >= 80
+      ? "var(--success)"
+      : pct >= 60
+        ? "var(--warning)"
+        : "var(--error)";
   return `
     <div class="confidence-item">
       <div class="confidence-header">
@@ -195,41 +243,41 @@ function metaRow(label, valueHtml) {
 function renderExtractedFields(type, data) {
   const fieldConfig = {
     payslip: [
-      { key: 'employee_name', label: 'Employee Name' },
-      { key: 'employer',      label: 'Employer' },
-      { key: 'period',        label: 'Period' },
-      { key: 'gross_pay',     label: 'Gross Pay',  currency: true },
-      { key: 'net_pay',       label: 'Net Pay',    currency: true },
-      { key: 'deductions',    label: 'Deductions', currency: true },
-      { key: 'currency',      label: 'Currency' },
+      { key: "employee_name", label: "Employee Name" },
+      { key: "employer", label: "Employer" },
+      { key: "period", label: "Period" },
+      { key: "gross_pay", label: "Gross Pay", currency: true },
+      { key: "net_pay", label: "Net Pay", currency: true },
+      { key: "deductions", label: "Deductions", currency: true },
+      { key: "currency", label: "Currency" },
     ],
     bank_statement: [
-      { key: 'account_holder',       label: 'Account Holder' },
-      { key: 'account_number_last4', label: 'Acct. No. (Last 4)', mono: true },
-      { key: 'statement_period',     label: 'Statement Period' },
-      { key: 'opening_balance',      label: 'Opening Balance',  currency: true },
-      { key: 'closing_balance',      label: 'Closing Balance',  currency: true },
-      { key: 'average_balance',      label: 'Average Balance',  currency: true },
-      { key: 'total_deposits',       label: 'Total Deposits',   currency: true },
-      { key: 'total_withdrawals',    label: 'Total Withdrawals', currency: true },
-      { key: 'transactions_count',   label: 'Transaction Count' },
-      { key: 'currency',             label: 'Currency' },
+      { key: "account_holder", label: "Account Holder" },
+      { key: "account_number_last4", label: "Acct. No. (Last 4)", mono: true },
+      { key: "statement_period", label: "Statement Period" },
+      { key: "opening_balance", label: "Opening Balance", currency: true },
+      { key: "closing_balance", label: "Closing Balance", currency: true },
+      { key: "average_balance", label: "Average Balance", currency: true },
+      { key: "total_deposits", label: "Total Deposits", currency: true },
+      { key: "total_withdrawals", label: "Total Withdrawals", currency: true },
+      { key: "transactions_count", label: "Transaction Count" },
+      { key: "currency", label: "Currency" },
     ],
     tax_return: [
-      { key: 'taxpayer_name',   label: 'Taxpayer Name' },
-      { key: 'tax_year',        label: 'Tax Year' },
-      { key: 'declared_income', label: 'Declared Income', currency: true },
-      { key: 'taxable_income',  label: 'Taxable Income',  currency: true },
-      { key: 'tax_paid',        label: 'Tax Paid',        currency: true },
-      { key: 'currency',        label: 'Currency' },
+      { key: "taxpayer_name", label: "Taxpayer Name" },
+      { key: "tax_year", label: "Tax Year" },
+      { key: "declared_income", label: "Declared Income", currency: true },
+      { key: "taxable_income", label: "Taxable Income", currency: true },
+      { key: "tax_paid", label: "Tax Paid", currency: true },
+      { key: "currency", label: "Currency" },
     ],
     kyc: [
-      { key: 'full_name',             label: 'Full Name' },
-      { key: 'date_of_birth',         label: 'Date of Birth' },
-      { key: 'document_type',         label: 'ID Type' },
-      { key: 'document_number_last4', label: 'Doc. No. (Last 4)', mono: true },
-      { key: 'address',               label: 'Address' },
-      { key: 'expiry_date',           label: 'Expiry Date' },
+      { key: "full_name", label: "Full Name" },
+      { key: "date_of_birth", label: "Date of Birth" },
+      { key: "document_type", label: "ID Type" },
+      { key: "document_number_last4", label: "Doc. No. (Last 4)", mono: true },
+      { key: "address", label: "Address" },
+      { key: "expiry_date", label: "Expiry Date" },
     ],
   };
 
@@ -239,32 +287,37 @@ function renderExtractedFields(type, data) {
     return '<p class="text-sm text-muted">No field configuration for this document type.</p>';
   }
 
-  return fields.map(({ key, label, currency, mono }) => {
-    const raw = data?.[key];
-    let display = '—';
-    if (raw != null && raw !== '') {
-      if (currency && typeof raw === 'number') {
-        display = raw.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      } else {
-        display = String(raw);
+  return fields
+    .map(({ key, label, currency, mono }) => {
+      const raw = data?.[key];
+      let display = "—";
+      if (raw != null && raw !== "") {
+        if (currency && typeof raw === "number") {
+          display = raw.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        } else {
+          display = String(raw);
+        }
       }
-    }
-    const isEmpty = display === '—';
-    return `
+      const isEmpty = display === "—";
+      return `
       <div class="result-field">
         <span class="result-field-label">${label}</span>
-        <span class="result-field-value ${mono ? 'mono' : ''}" style="${isEmpty ? 'color:var(--fg-subtle);' : ''}">${escHtml(display)}</span>
+        <span class="result-field-value ${mono ? "mono" : ""}" style="${isEmpty ? "color:var(--fg-subtle);" : ""}">${escHtml(display)}</span>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 function docTypeIcon(type) {
   const icons = {
-    payslip:        '<i data-lucide="receipt" class="icon-md"></i>',
+    payslip: '<i data-lucide="receipt" class="icon-md"></i>',
     bank_statement: '<i data-lucide="landmark" class="icon-md"></i>',
-    tax_return:     '<i data-lucide="file-spreadsheet" class="icon-md"></i>',
-    kyc:            '<i data-lucide="shield-check" class="icon-md"></i>',
+    tax_return: '<i data-lucide="file-spreadsheet" class="icon-md"></i>',
+    kyc: '<i data-lucide="shield-check" class="icon-md"></i>',
   };
   return icons[type] ?? '<i data-lucide="file-text" class="icon-md"></i>';
 }
