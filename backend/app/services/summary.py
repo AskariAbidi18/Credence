@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 
-from tensorboard import summary
-
 from app.schemas.summary import LoanSummary
 from app.services.llm import (
     LLMServiceError,
