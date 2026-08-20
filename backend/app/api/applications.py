@@ -683,11 +683,11 @@ def validate_application_endpoint(
     # If required documents are missing or validation contains
     # critical issues, the application requires manual review.
 
-    if (
-        not validation_result.passed
-        or validation_result.missing_documents
-    ):
-        application.status = "review_required"
+    # Validation records findings only.
+    #
+    # The final workflow decision is determined during risk assessment,
+    # where validation findings are combined with the ML prediction and
+    # weighted deterministic risk scoring.
 
     db.commit()
     db.refresh(application)
