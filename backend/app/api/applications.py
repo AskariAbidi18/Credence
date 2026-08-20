@@ -4,6 +4,7 @@ Application API routes for Credence.
 
 from __future__ import annotations
 
+from email.mime import application
 import shutil
 from pathlib import Path
 
@@ -341,7 +342,10 @@ def assess_application_risk(
     loan_data = application.loan_data or {}
 
     try:
-        risk_result = assess_loan_risk(loan_data)
+        risk_result = assess_loan_risk(
+            loan_data,
+            validation_flags=application.validation_flags,
+        )
 
     except RiskAssessmentError as exc:
         raise HTTPException(
@@ -349,12 +353,24 @@ def assess_application_risk(
             detail=str(exc),
         ) from exc
 
-    application.risk_assessment = risk_result
 
-    if risk_result["decision"] == "Approved":
+    # ---------------------------------------------------------------
+    # Apply final system workflow decision
+    # ---------------------------------------------------------------
+
+    decision = risk_result["decision"]
+
+    if decision == "Approved":
         application.status = "approved"
+
+    elif decision == "Review Required":
+        application.status = "review_required"
+
     else:
         application.status = "rejected"
+
+
+    application.risk_assessment = risk_result
 
     db.commit()
     db.refresh(application)

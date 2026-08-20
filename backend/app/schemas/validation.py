@@ -14,6 +14,7 @@ class ValidationSeverity(str, Enum):
 class ValidationCategory(str, Enum):
     IDENTITY = "identity"
     INCOME = "income"
+    FINANCIAL_RISK = "financial_risk"
     DOCUMENT_COMPLETENESS = "document_completeness"
     DOCUMENT_QUALITY = "document_quality"
     CONSISTENCY = "consistency"

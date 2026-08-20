@@ -41,6 +41,15 @@ INCOME_TOLERANCE = 0.20
 # Minimum confidence before a document-quality warning is raised.
 CONFIDENCE_WARNING_THRESHOLD = 0.80
 
+# ---------------------------------------------------------------------------
+# Financial risk thresholds
+# ---------------------------------------------------------------------------
+
+LOW_CIBIL_THRESHOLD = 650
+HIGH_RISK_CIBIL_THRESHOLD = 550
+
+MAX_LOAN_TO_INCOME_RATIO = 5.0
+MIN_ASSET_COVERAGE_RATIO = 0.50
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -453,6 +462,179 @@ def _check_basic_consistency(
                     )
                 )
 
+def _check_financial_risk(
+    application: Application,
+    flags: list[ValidationFlag],
+) -> None:
+    """
+    Add deterministic financial risk flags for unusual or
+    potentially risky application profiles.
+
+    These checks do not approve or reject the application.
+    They provide explicit signals for human reviewer attention.
+    """
+
+    loan_data = application.loan_data or {}
+
+    cibil_score = _safe_float(
+        loan_data.get("cibil_score")
+    )
+
+    income_annum = _safe_float(
+        loan_data.get("income_annum")
+    )
+
+    loan_amount = _safe_float(
+        loan_data.get("loan_amount")
+    )
+
+    asset_fields = [
+        "residential_assets_value",
+        "commercial_assets_value",
+        "luxury_assets_value",
+        "bank_asset_value",
+    ]
+
+    total_assets = sum(
+        _safe_float(loan_data.get(field)) or 0.0
+        for field in asset_fields
+    )
+
+    # ---------------------------------------------------------------
+    # CIBIL risk
+    # ---------------------------------------------------------------
+
+    if cibil_score is not None:
+
+        if cibil_score < HIGH_RISK_CIBIL_THRESHOLD:
+
+            flags.append(
+                ValidationFlag(
+                    category=ValidationCategory.FINANCIAL_RISK,
+                    severity=ValidationSeverity.CRITICAL,
+                    title="Very low CIBIL score",
+                    reason=(
+                        f"The applicant's CIBIL score of "
+                        f"{int(cibil_score)} indicates a high "
+                        f"credit-risk profile and requires manual "
+                        f"review."
+                    ),
+                    expected=(
+                        f">= {HIGH_RISK_CIBIL_THRESHOLD}"
+                    ),
+                    observed=str(int(cibil_score)),
+                )
+            )
+
+        elif cibil_score < LOW_CIBIL_THRESHOLD:
+
+            flags.append(
+                ValidationFlag(
+                    category=ValidationCategory.FINANCIAL_RISK,
+                    severity=ValidationSeverity.WARNING,
+                    title="Low CIBIL score",
+                    reason=(
+                        f"The applicant's CIBIL score of "
+                        f"{int(cibil_score)} is below the preferred "
+                        f"risk threshold and should be considered "
+                        f"during review."
+                    ),
+                    expected=(
+                        f">= {LOW_CIBIL_THRESHOLD}"
+                    ),
+                    observed=str(int(cibil_score)),
+                )
+            )
+
+    # ---------------------------------------------------------------
+    # Loan-to-income risk
+    # ---------------------------------------------------------------
+
+    if (
+        income_annum is not None
+        and income_annum > 0
+        and loan_amount is not None
+        and loan_amount > 0
+    ):
+        loan_to_income = (
+            loan_amount / income_annum
+        )
+
+        if loan_to_income > MAX_LOAN_TO_INCOME_RATIO:
+
+            flags.append(
+                ValidationFlag(
+                    category=ValidationCategory.FINANCIAL_RISK,
+                    severity=ValidationSeverity.WARNING,
+                    title="High loan-to-income ratio",
+                    reason=(
+                        f"The requested loan is "
+                        f"{loan_to_income:.2f} times the declared "
+                        f"annual income, which may indicate limited "
+                        f"repayment capacity."
+                    ),
+                    expected=(
+                        f"<= {MAX_LOAN_TO_INCOME_RATIO:.2f}"
+                    ),
+                    observed=f"{loan_to_income:.2f}",
+                )
+            )
+
+    # ---------------------------------------------------------------
+    # Asset coverage risk
+    # ---------------------------------------------------------------
+
+    if loan_amount is not None and loan_amount > 0:
+
+        if total_assets <= 0:
+
+            flags.append(
+                ValidationFlag(
+                    category=ValidationCategory.FINANCIAL_RISK,
+                    severity=ValidationSeverity.WARNING,
+                    title="No declared assets",
+                    reason=(
+                        "The application reports no declared assets. "
+                        "This may be valid for an unsecured loan, "
+                        "but the absence of asset backing should be "
+                        "considered during manual review."
+                    ),
+                    expected="> 0",
+                    observed="0",
+                )
+            )
+
+        else:
+
+            asset_coverage_ratio = (
+                total_assets / loan_amount
+            )
+
+            if (
+                asset_coverage_ratio
+                < MIN_ASSET_COVERAGE_RATIO
+            ):
+
+                flags.append(
+                    ValidationFlag(
+                        category=ValidationCategory.FINANCIAL_RISK,
+                        severity=ValidationSeverity.WARNING,
+                        title="Low asset coverage",
+                        reason=(
+                            f"Declared assets cover only "
+                            f"{asset_coverage_ratio:.2%} of the "
+                            f"requested loan amount."
+                        ),
+                        expected=(
+                            f">= "
+                            f"{MIN_ASSET_COVERAGE_RATIO:.0%} "
+                            f"of loan amount"
+                        ),
+                        observed=(
+                            f"{asset_coverage_ratio:.2%}"
+                        ),
+                    )
+                )
 
 # ---------------------------------------------------------------------------
 # Main validation function
@@ -495,6 +677,11 @@ def validate_application(
     _check_income_consistency(
         application,
         documents,
+        flags,
+    )
+
+    _check_financial_risk(
+        application,
         flags,
     )
 

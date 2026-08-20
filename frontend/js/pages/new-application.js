@@ -352,11 +352,11 @@ function attachEvents(container) {
 
       const application = await createApplication(payload);
 
-      showToast(
-        "Application created successfully.",
-        "success",
-        "Application created",
-      );
+      showToast({
+        title: "Application created",
+        desc: "Application created successfully.",
+        type: "success",
+      });
 
       if (application?.id) {
         navigate(`/application/${application.id}`);
@@ -368,11 +368,11 @@ function attachEvents(container) {
 
       console.error(error);
 
-      showToast(
-        error.message,
-        "error",
-        "Application creation failed",
-      );
+      showToast({
+        title: "Application creation failed",
+        desc: error.message,
+        type: "error",
+      });
 
       button.disabled = false;
       button.textContent = "Create Application";
