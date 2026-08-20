@@ -17,11 +17,9 @@ export async function renderNewApplication() {
     <div class="page-header">
       <div>
         <div class="eyebrow">LOAN PROCESSING</div>
-
         <h1 class="page-title">New Application</h1>
-
         <p class="page-subtitle">
-          Create a loan application before uploading supporting documents.
+          Create a loan application and provide the applicant's financial profile.
         </p>
       </div>
 
@@ -35,17 +33,13 @@ export async function renderNewApplication() {
     </div>
 
     <form id="new-application-form">
-
       <div class="application-detail-card">
-
-        <h2>Applicant Information</h2>
-
+        <h2>Applicant & Loan Details</h2>
         <p class="text-sm text-muted" style="margin-bottom:18px;">
-          Basic information about the applicant and requested loan.
+          Enter the applicant's basic information and requested loan details.
         </p>
 
         <div class="detail-grid">
-
           <div class="form-field">
             <label for="applicant-name">Applicant Name</label>
             <input
@@ -71,7 +65,7 @@ export async function renderNewApplication() {
           </div>
 
           <div class="form-field">
-            <label for="income-annum">Annual Income (₹)</label>
+            <label for="income-annum">Declared Annual Income (₹)</label>
             <input
               id="income-annum"
               name="income_annum"
@@ -84,7 +78,7 @@ export async function renderNewApplication() {
           </div>
 
           <div class="form-field">
-            <label for="loan-amount">Loan Amount (₹)</label>
+            <label for="loan-amount">Requested Loan Amount (₹)</label>
             <input
               id="loan-amount"
               name="loan_amount"
@@ -122,22 +116,16 @@ export async function renderNewApplication() {
               required
             />
           </div>
-
         </div>
-
       </div>
 
-
       <div class="application-detail-card">
-
         <h2>Applicant Profile</h2>
-
         <p class="text-sm text-muted" style="margin-bottom:18px;">
-          Additional information used by the risk assessment model.
+          Additional information used during the risk assessment.
         </p>
 
         <div class="detail-grid">
-
           <div class="form-field">
             <label for="dependents">Number of Dependents</label>
             <input
@@ -156,38 +144,30 @@ export async function renderNewApplication() {
               id="education"
               name="education"
               type="text"
-              placeholder="Graduate"
+              placeholder="e.g. Graduate"
             />
           </div>
 
           <div class="form-field">
-            <label for="self-employed">Self Employed</label>
+            <label for="self-employed">Employment Type</label>
             <select id="self-employed" name="self_employed">
-              <option value="">Select</option>
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
+              <option value="">Select employment type</option>
+              <option value="No">Salaried</option>
+              <option value="Yes">Self-Employed</option>
             </select>
           </div>
-
         </div>
-
       </div>
 
-
       <div class="application-detail-card">
-
-        <h2>Assets</h2>
-
+        <h2>Declared Assets</h2>
         <p class="text-sm text-muted" style="margin-bottom:18px;">
-          Declare the applicant's asset values.
+          Enter the estimated value of the applicant's declared assets.
         </p>
 
         <div class="detail-grid">
-
           <div class="form-field">
-            <label for="residential-assets">
-              Residential Assets (₹)
-            </label>
+            <label for="residential-assets">Residential Assets (₹)</label>
             <input
               id="residential-assets"
               name="residential_assets_value"
@@ -199,9 +179,7 @@ export async function renderNewApplication() {
           </div>
 
           <div class="form-field">
-            <label for="commercial-assets">
-              Commercial Assets (₹)
-            </label>
+            <label for="commercial-assets">Commercial Assets (₹)</label>
             <input
               id="commercial-assets"
               name="commercial_assets_value"
@@ -213,9 +191,7 @@ export async function renderNewApplication() {
           </div>
 
           <div class="form-field">
-            <label for="luxury-assets">
-              Luxury Assets (₹)
-            </label>
+            <label for="luxury-assets">Luxury Assets (₹)</label>
             <input
               id="luxury-assets"
               name="luxury_assets_value"
@@ -227,9 +203,7 @@ export async function renderNewApplication() {
           </div>
 
           <div class="form-field">
-            <label for="bank-assets">
-              Bank Assets (₹)
-            </label>
+            <label for="bank-assets">Bank Assets (₹)</label>
             <input
               id="bank-assets"
               name="bank_asset_value"
@@ -239,21 +213,10 @@ export async function renderNewApplication() {
               placeholder="1500000"
             />
           </div>
-
         </div>
-
       </div>
 
-
-      <div
-        style="
-          display:flex;
-          justify-content:flex-end;
-          gap:10px;
-          margin-top:18px;
-        "
-      >
-
+      <div class="form-actions">
         <button
           type="button"
           class="btn btn-ghost"
@@ -269,18 +232,14 @@ export async function renderNewApplication() {
         >
           Create Application
         </button>
-
       </div>
-
     </form>
   `;
 
   attachEvents(container);
 }
 
-
 function attachEvents(container) {
-
   const goBack = () => {
     navigate("/applications");
   };
@@ -297,7 +256,6 @@ function attachEvents(container) {
   const button = container.querySelector("#create-application-btn");
 
   form?.addEventListener("submit", async (event) => {
-
     event.preventDefault();
     event.stopPropagation();
 
@@ -321,40 +279,28 @@ function attachEvents(container) {
 
     const payload = {
       applicant_name: value("applicant-name"),
-
       loan_type: value("loan-type"),
-
       loan_data: {
         no_of_dependents: numberValue("dependents"),
         education: value("education") || null,
         self_employed: value("self-employed") || null,
-
         income_annum: numberValue("income-annum"),
         loan_amount: numberValue("loan-amount"),
         loan_term: numberValue("loan-term"),
         cibil_score: numberValue("cibil-score"),
-
-        residential_assets_value:
-          numberValue("residential-assets"),
-
-        commercial_assets_value:
-          numberValue("commercial-assets"),
-
-        luxury_assets_value:
-          numberValue("luxury-assets"),
-
-        bank_asset_value:
-          numberValue("bank-assets"),
+        residential_assets_value: numberValue("residential-assets"),
+        commercial_assets_value: numberValue("commercial-assets"),
+        luxury_assets_value: numberValue("luxury-assets"),
+        bank_asset_value: numberValue("bank-assets"),
       },
     };
 
     try {
-
       const application = await createApplication(payload);
 
       showToast({
         title: "Application created",
-        desc: "Application created successfully.",
+        desc: "The application was created successfully.",
         type: "success",
       });
 
@@ -363,14 +309,12 @@ function attachEvents(container) {
       } else {
         navigate("/applications");
       }
-
     } catch (error) {
-
       console.error(error);
 
       showToast({
         title: "Application creation failed",
-        desc: error.message,
+        desc: error.message || "Unable to create the application.",
         type: "error",
       });
 
