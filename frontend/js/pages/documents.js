@@ -311,9 +311,6 @@ function renderTable(docs) {
             <button class="btn btn-ghost btn-icon-sm" title="View details" onclick="event.stopPropagation(); window.location.hash='/document/${escHtml(d.document_id)}'">
               <i data-lucide="eye" class="icon-xs"></i>
             </button>
-            <button class="btn btn-ghost btn-icon-sm" title="Delete record" data-delete-id="${escHtml(d.document_id)}">
-              <i data-lucide="trash-2" class="icon-xs"></i>
-            </button>
           </div>
         </td>
       </tr>

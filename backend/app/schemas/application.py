@@ -48,12 +48,12 @@ class LoanApplicationData(BaseModel):
 
     income_annum: float | None = Field(
         default=None,
-        ge=0,
+        gt=0,
     )
 
     loan_amount: float | None = Field(
         default=None,
-        ge=0,
+        gt=0,
     )
 
     loan_term: int | None = Field(
@@ -63,7 +63,7 @@ class LoanApplicationData(BaseModel):
 
     cibil_score: int | None = Field(
         default=None,
-        ge=0,
+        ge=300,
         le=900,
     )
 

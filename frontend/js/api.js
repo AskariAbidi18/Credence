@@ -6,7 +6,7 @@
 
 export const BACKEND_URL =
   localStorage.getItem("credence_backend_url") ||
-  "https://credence-3hnj.onrender.com";
+  "http://localhost:8000";
 
 export function getBackendUrl() {
   return (localStorage.getItem("credence_backend_url") || BACKEND_URL).replace(
