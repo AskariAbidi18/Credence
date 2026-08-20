@@ -5,7 +5,7 @@
  * All pages are lazy-loaded JS modules.
  *
  * Technology: HTML + CSS + Vanilla JavaScript (no React, no Node, no npm)
- * Backend: FastAPI at http://localhost:8000 (READ-ONLY)
+ * Backend: FastAPI at https://credence-3hnj.onrender.com (READ-ONLY)
  */
 
 import { initTheme }                        from './theme.js';

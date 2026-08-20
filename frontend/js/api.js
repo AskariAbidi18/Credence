@@ -6,7 +6,7 @@
 
 export const BACKEND_URL =
   localStorage.getItem("credence_backend_url") ||
-  "http://localhost:8000";
+  "https://credence-3hnj.onrender.com";
 
 export function getBackendUrl() {
   return (localStorage.getItem("credence_backend_url") || BACKEND_URL).replace(
@@ -88,7 +88,7 @@ export async function uploadDocument(file, onProgress) {
     xhr.addEventListener("error", () => {
       reject(
         new Error(
-          "Network error — is the backend running on http://localhost:8000?",
+          "Network error — unable to connect to the backend.",
         ),
       );
     });

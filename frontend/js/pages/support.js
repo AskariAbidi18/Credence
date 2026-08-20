@@ -139,7 +139,7 @@ export async function renderSupport() {
         </div>
         <p class="text-xs text-muted" style="margin-top:0.75rem;">
           Full interactive API docs available at
-          <a href="http://localhost:8000/docs" target="_blank" rel="noopener" style="color:var(--info-fg); text-decoration:underline;">http://localhost:8000/docs</a>
+          <a href="https://credence-3hnj.onrender.com/docs" target="_blank" rel="noopener" style="color:var(--info-fg); text-decoration:underline;">http://localhost:8000/docs</a>
           when the backend is running.
         </p>
       </div>
